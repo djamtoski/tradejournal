@@ -10,6 +10,10 @@ numbers. Your data stays in a SQLite file on your machine.
   daily P&L, and breakdowns by setup, symbol, weekday and entry hour
 - **Calendar**: month and year views of daily P&L
 - **Daily**: intraday P&L, trades, per-symbol blotter and a journal
+- **Trades**: filter, sort and edit trades: tags, mistakes, rule rating,
+  stop/target, MFE/MAE and notes
+- **Journal**: searchable entries, and whether rule-following days pay
+- **Playbook**: setup and rules documents, with live stats for linked setups
 - **Import**: any broker CSV, with automatic column matching, preview,
   duplicate skipping, and fills grouped into round-trip trades
 

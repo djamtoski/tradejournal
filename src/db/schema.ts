@@ -144,11 +144,16 @@ export const journalEntries = sqliteTable("journal_entries", {
     .default(sql`(unixepoch() * 1000)`),
 });
 
+/** A setup or rules document. Linking a tag shows that setup's live stats. */
 export const playbooks = sqliteTable("playbooks", {
   id: id(),
   title: text("title").notNull(),
   content: text("content").notNull().default(""),
+  tagId: integer("tag_id").references(() => tags.id, { onDelete: "set null" }),
   createdAt: createdAt(),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+    .notNull()
+    .default(sql`(unixepoch() * 1000)`),
 });
 
 export const screenshots = sqliteTable("screenshots", {
