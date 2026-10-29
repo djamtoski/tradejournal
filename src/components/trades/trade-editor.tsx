@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { Check, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatR } from "@/lib/format";
 import { createTag, setTradeTags, updateTrade } from "@/lib/trades/actions";
 
 type Tag = { id: number; name: string; groupId: number | null; group: string | null };
@@ -13,6 +14,9 @@ export function TradeEditor({
   entryPrice,
   quantity,
   multiplier,
+  netPnl,
+  closed,
+  defaultRisk,
   allTags,
   groups,
   initial,
@@ -22,6 +26,10 @@ export function TradeEditor({
   entryPrice: number;
   quantity: number;
   multiplier: number;
+  netPnl: number;
+  closed: boolean;
+  /** The account's 1R for trades without a stop. */
+  defaultRisk: number | null;
   allTags: Tag[];
   groups: { id: number; name: string }[];
   initial: {
@@ -67,9 +75,18 @@ export function TradeEditor({
     run("Saved", () => updateTrade(tradeId, { [key]: value }));
   };
 
-  // Planned risk in money and R-multiple of the realized move, when a stop is set.
+  // 1R from the stop being typed (live), else the account default; same rule as riskOf().
   const stop = Number(nums.stopPrice);
-  const risk = nums.stopPrice && Number.isFinite(stop) ? Math.abs(entryPrice - stop) * quantity * multiplier : null;
+  const target = Number(nums.targetPrice);
+  const hasStop = nums.stopPrice.trim() !== "" && Number.isFinite(stop) && stop !== entryPrice;
+  const stopRisk = hasStop ? Math.abs(entryPrice - stop) * quantity * multiplier : null;
+  const risk = stopRisk ?? (defaultRisk && defaultRisk > 0 ? defaultRisk : null);
+  const realizedR = risk && closed ? netPnl / risk : null;
+  const targetR =
+    hasStop && nums.targetPrice.trim() !== "" && Number.isFinite(target)
+      ? Math.abs(target - entryPrice) / Math.abs(entryPrice - stop)
+      : null;
+  const stopWrongSide = hasStop && (side === "long" ? stop > entryPrice : stop < entryPrice);
 
   const byGroup = new Map<string, Tag[]>();
   for (const t of tags) byGroup.set(t.group ?? "Other", [...(byGroup.get(t.group ?? "Other") ?? []), t]);
@@ -154,10 +171,30 @@ export function TradeEditor({
           <NumberField label="MFE (points)" value={nums.mfe} onChange={(v) => setNums({ ...nums, mfe: v })} onCommit={(v) => saveNumber("mfe", v)} />
           <NumberField label="MAE (points)" value={nums.mae} onChange={(v) => setNums({ ...nums, mae: v })} onCommit={(v) => saveNumber("mae", v)} />
         </div>
-        {risk !== null && risk > 0 && (
-          <p className="num mt-2 text-[12px] text-faint">
-            Planned risk ${risk.toLocaleString("en-US", { maximumFractionDigits: 0 })}
-            {side === "long" ? (stop > entryPrice ? " · stop is above entry" : "") : stop < entryPrice ? " · stop is below entry" : ""}
+        {risk !== null ? (
+          <dl className="mt-2 grid grid-cols-3 gap-2 text-[12px]">
+            <div className="flex flex-col gap-0.5 rounded-md bg-muted px-2.5 py-2">
+              <dt className="text-[11px] text-faint">1R</dt>
+              <dd className="num text-foreground">${risk.toLocaleString("en-US", { maximumFractionDigits: 0 })}</dd>
+              <dd className="text-[11px] text-faint">{stopRisk ? "from stop" : "account default"}</dd>
+            </div>
+            <div className="flex flex-col gap-0.5 rounded-md bg-muted px-2.5 py-2">
+              <dt className="text-[11px] text-faint">Result</dt>
+              <dd className={cn("num", realizedR === null ? "text-faint" : realizedR >= 0 ? "text-profit" : "text-loss")}>
+                {realizedR === null ? "Open" : formatR(realizedR, 2)}
+              </dd>
+            </div>
+            <div className="flex flex-col gap-0.5 rounded-md bg-muted px-2.5 py-2">
+              <dt className="text-[11px] text-faint">Target</dt>
+              <dd className="num text-foreground">{targetR === null ? "—" : formatR(targetR, 1)}</dd>
+            </div>
+          </dl>
+        ) : (
+          <p className="mt-2 text-[12px] text-faint">Enter a stop, or set 1R for this account in Settings, to see R.</p>
+        )}
+        {stopWrongSide && (
+          <p className="mt-1.5 text-[12px] text-loss">
+            The stop is {side === "long" ? "above" : "below"} the entry for a {side} trade.
           </p>
         )}
       </Section>

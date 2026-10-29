@@ -28,3 +28,11 @@ export const formatRatio = (n: number) =>
 
 export const pnlTone = (n: number) =>
   n > 0 ? "text-profit" : n < 0 ? "text-loss" : "text-muted-foreground";
+
+/** "+2.4R" / "−0.5R"; "—" when the trade has no risk. */
+export function formatR(r: number | null, digits = 1) {
+  if (r === null || !Number.isFinite(r)) return "—";
+  const abs = Math.abs(r).toFixed(digits);
+  if (Number(abs) === 0) return `${abs}R`;
+  return `${r > 0 ? "+" : "−"}${abs}R`;
+}

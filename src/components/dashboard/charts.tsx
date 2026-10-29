@@ -129,3 +129,32 @@ export function PnlBarsChart({ data }: { data: PeriodPoint[] }) {
     </ResponsiveContainer>
   );
 }
+
+/** Trade counts per R bucket; loss buckets red, win buckets green. */
+export function RDistributionChart({ data }: { data: { label: string; trades: number }[] }) {
+  return (
+    <ResponsiveContainer width="100%" height={200}>
+      <BarChart data={data} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
+        {grid}
+        <XAxis dataKey="label" interval={0} {...axis} />
+        <YAxis allowDecimals={false} width={40} {...axis} />
+        <Tooltip
+          cursor={{ fill: "rgb(255 255 255 / 0.03)" }}
+          content={({ active, payload }) =>
+            active && payload?.length ? (
+              <div className="rounded-md border border-input bg-popover px-3 py-2 text-[12px] shadow-[0_8px_24px_rgb(0_0_0/0.4)]">
+                <div className="text-muted-foreground">{(payload[0].payload as { label: string }).label}</div>
+                <div className="num text-foreground">{payload[0].value} trades</div>
+              </div>
+            ) : null
+          }
+        />
+        <Bar dataKey="trades" radius={[2, 2, 0, 0]} maxBarSize={36}>
+          {data.map((d, i) => (
+            <Cell key={d.label} fill={i < 3 ? "var(--loss)" : "var(--profit)"} fillOpacity={0.85} />
+          ))}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}

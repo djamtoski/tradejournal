@@ -3,7 +3,7 @@ import { connection } from "next/server";
 import { db, schema } from "@/db";
 import { rangeStart, type RangeId, type Scope } from "./filters";
 import { getSettings } from "./settings/queries";
-import type { StatTrade } from "./stats";
+import { riskOf, type StatTrade } from "./stats";
 import { addDaysKey, dayKey, startOfDay, zonedParts } from "./tz";
 
 export type JournalTrade = StatTrade & {
@@ -14,6 +14,10 @@ export type JournalTrade = StatTrade & {
   fees: number;
   followedRules: boolean | null;
   note: string | null;
+  accountId: number;
+  multiplier: number;
+  stopPrice: number | null;
+  targetPrice: number | null;
   /** Tags from the "Mistake" group; `tags` holds the rest (setups etc). */
   mistakes: string[];
 };
@@ -74,8 +78,17 @@ export async function getClosedTradesBetween(
       netPnl: true,
       followedRules: true,
       note: true,
+      accountId: true,
+      multiplier: true,
+      stopPrice: true,
+      targetPrice: true,
     },
   });
+  const defaultRisk = new Map(
+    (await db.select({ id: schema.accounts.id, risk: schema.accounts.defaultRisk }).from(schema.accounts)).map(
+      (a) => [a.id, a.risk],
+    ),
+  );
 
   const tagRows = await db
     .select({
@@ -101,6 +114,7 @@ export async function getClosedTradesBetween(
       day: dayKey(r.closedAt!, timezone),
       openHour: opened.hour,
       openWeekday: opened.weekday,
+      risk: riskOf({ ...r, defaultRisk: defaultRisk.get(r.accountId) ?? null }),
       tags: tagsByTrade.get(r.id)?.tags ?? [],
       mistakes: tagsByTrade.get(r.id)?.mistakes ?? [],
     };
@@ -181,7 +195,14 @@ export async function getTradeDetail(id: number) {
       .from(schema.tradeTags)
       .where(eq(schema.tradeTags.tradeId, id)),
   ]);
-  return { trade, fills, tagIds: tagLinks.map((t) => t.tagId), manual: fills.length === 0 };
+  const account = await db.query.accounts.findFirst({ where: eq(schema.accounts.id, trade.accountId) });
+  return {
+    trade,
+    fills,
+    tagIds: tagLinks.map((t) => t.tagId),
+    manual: fills.length === 0,
+    defaultRisk: account?.defaultRisk ?? null,
+  };
 }
 
 /** Trading day (in the trading timezone) of the most recent close, used as a default. */

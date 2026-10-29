@@ -3,7 +3,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/shell/page-header";
 import { FilterBar } from "@/components/shell/filter-bar";
 import { Kpi, Panel } from "@/components/dashboard/card";
-import { EquityChart, PnlBarsChart } from "@/components/dashboard/charts";
+import { EquityChart, PnlBarsChart, RDistributionChart } from "@/components/dashboard/charts";
 import { Breakdown } from "@/components/dashboard/breakdown";
 import type { Filters } from "@/lib/filters";
 import { readFilters } from "@/lib/filters-server";
@@ -17,9 +17,10 @@ import {
   byWeekday,
   dailySeries,
   groupedSeries,
+  rDistribution,
   summarize,
 } from "@/lib/stats";
-import { formatPct, formatPnl, formatRatio, pnlTone } from "@/lib/format";
+import { formatPct, formatPnl, formatR, formatRatio, pnlTone } from "@/lib/format";
 
 export default function DashboardPage({ searchParams }: PageProps<"/">) {
   return (
@@ -72,7 +73,7 @@ function Overview({
 
   return (
     <div className="mx-auto flex max-w-[1400px] flex-col gap-4 p-6">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         <Kpi
           label={`${mode === "net" ? "Net" : "Gross"} P&L`}
           value={formatPnl(s.total)}
@@ -100,6 +101,12 @@ function Overview({
           label="Avg win / loss"
           value={formatRatio(s.avgLoss ? s.avgWin / s.avgLoss : Infinity)}
           sub={`${formatPnl(s.avgWin)} / ${formatPnl(-s.avgLoss)}`}
+        />
+        <Kpi
+          label="Avg R"
+          value={formatR(s.avgR, 2)}
+          tone={s.avgR === null ? "text-faint" : pnlTone(s.avgR)}
+          sub={s.rCount ? `${formatR(s.totalR)} total · ${s.rCount} trades` : "set 1R in Settings"}
         />
       </div>
 
@@ -144,14 +151,26 @@ function Overview({
         </Panel>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Panel title="R distribution" meta={s.rCount ? `${s.rCount} of ${s.count} trades have a risk` : undefined}>
+          {s.rCount ? (
+            <div className="px-1 pb-2">
+              <RDistributionChart data={rDistribution(trades, mode)} />
+            </div>
+          ) : (
+            <p className="px-4 pb-4 pt-1 text-[13px] text-faint">
+              Add stops to your trades, or set 1R per account in Settings, to see results in multiples of risk.
+            </p>
+          )}
+        </Panel>
         <Panel title="By weekday">
           <Breakdown rows={byWeekday(trades, mode)} />
         </Panel>
-        <Panel title="By entry hour">
-          <Breakdown rows={byHour(trades, mode)} />
-        </Panel>
       </div>
+
+      <Panel title="By entry hour">
+        <Breakdown rows={byHour(trades, mode)} />
+      </Panel>
     </div>
   );
 }
@@ -209,8 +228,8 @@ function DashboardSkeleton() {
     <>
       <div className="h-12 border-b border-border" />
       <div className="mx-auto flex max-w-[1400px] flex-col gap-4 p-6">
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-          {Array.from({ length: 5 }, (_, i) => (
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+          {Array.from({ length: 6 }, (_, i) => (
             <div key={i} className="h-[92px] animate-pulse rounded-[10px] border border-border bg-card" />
           ))}
         </div>

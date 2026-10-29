@@ -22,8 +22,8 @@ import {
 } from "@/lib/queries";
 import { getSettings } from "@/lib/settings/queries";
 import { addDaysKey, dayKey, formatTime } from "@/lib/tz";
-import { pnlOf, summarize, type PnlMode } from "@/lib/stats";
-import { formatMoney, formatPct, formatPnl, pnlTone } from "@/lib/format";
+import { pnlOf, rOf, summarize, type PnlMode } from "@/lib/stats";
+import { formatMoney, formatPct, formatPnl, formatR, pnlTone } from "@/lib/format";
 
 export default function DailyPage({ searchParams }: PageProps<"/daily">) {
   return (
@@ -216,7 +216,7 @@ const price = (n: number | null) =>
 function TradesTable({ trades, mode, timezone }: { trades: JournalTrade[]; mode: PnlMode; timezone: string }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[760px] text-[13px]">
+      <table className="w-full min-w-[820px] text-[13px]">
         <thead className="text-[12px] text-faint">
           <tr className="border-b border-border">
             <th className="px-4 py-2 text-left font-normal">Time</th>
@@ -226,6 +226,7 @@ function TradesTable({ trades, mode, timezone }: { trades: JournalTrade[]; mode:
             <th className="px-2 py-2 text-right font-normal">Entry</th>
             <th className="px-2 py-2 text-right font-normal">Exit</th>
             <th className="px-2 py-2 text-right font-normal">P&L</th>
+            <th className="px-2 py-2 text-right font-normal">R</th>
             <th className="px-2 py-2 text-left font-normal">Tags</th>
             <th className="px-4 py-2 text-center font-normal">Rules</th>
           </tr>
@@ -253,6 +254,7 @@ function TradesTable({ trades, mode, timezone }: { trades: JournalTrade[]; mode:
                 <td className="num px-2 text-right text-muted-foreground">{price(t.entryPrice)}</td>
                 <td className="num px-2 text-right text-muted-foreground">{price(t.exitPrice)}</td>
                 <td className={cn("num px-2 text-right", pnlTone(pnl))}>{formatPnl(pnl, true)}</td>
+                <td className={cn("num px-2 text-right", t.risk ? pnlTone(pnl) : "text-faint")}>{formatR(rOf(t, mode))}</td>
                 <td className="max-w-[14rem] px-2">
                   <div className="flex flex-wrap gap-1">
                     {t.tags.map((tag) => (
