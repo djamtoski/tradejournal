@@ -17,6 +17,8 @@ numbers. Your data stays in a SQLite file on your machine.
   stop/target, MFE/MAE and notes
 - **Journal**: searchable entries, and whether rule-following days pay
 - **Playbook**: setup and rules documents, with live stats for linked setups
+- **Screenshots**: paste or drop charts, link them to a day or trade, and
+  annotate with arrows, boxes, level lines and text
 - **Import**: any broker CSV, with automatic column matching, preview,
   duplicate skipping, and fills grouped into round-trip trades
 

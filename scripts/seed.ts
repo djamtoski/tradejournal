@@ -2,6 +2,7 @@
  * Fills the local database with ~4 months of realistic sample trades.
  * Wipes existing data first. Run with: npm run db:seed
  */
+import { rm } from "node:fs/promises";
 import { db, schema } from "../src/db";
 import { dayKey } from "../src/lib/stats";
 
@@ -51,6 +52,7 @@ const mistakeTags = ["Chased entry", "Moved stop", "Oversized"];
 async function main() {
   await db.delete(schema.playbooks);
   await db.delete(schema.screenshots);
+  await rm("data/screenshots", { recursive: true, force: true });
   await db.delete(schema.tradeTags);
   await db.delete(schema.executions);
   await db.delete(schema.imports);

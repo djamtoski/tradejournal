@@ -72,7 +72,8 @@ async function Settings() {
             <DownloadLink href="/api/export/backup">Download full backup (JSON)</DownloadLink>
           </div>
           <p className="text-[12px] text-faint">
-            The CSV opens in any spreadsheet. The backup has every table, so nothing is lost if you move computers.
+            The CSV opens in any spreadsheet. The backup has every table; screenshot images stay in
+            data/screenshots, so copy that folder too when moving computers.
           </p>
         </div>
       </Section>

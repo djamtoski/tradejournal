@@ -3,6 +3,7 @@
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db, schema } from "@/db";
+import { removeImage } from "@/lib/screenshots/storage";
 
 // SQLite here doesn't enforce FK cascades, so every delete cleans up its children explicitly.
 
@@ -25,6 +26,7 @@ export async function renameAccount(id: number, name: string, broker: string): P
 }
 
 export async function deleteAccount(id: number): Promise<Result> {
+  const files: string[] = [];
   await db.transaction(async (tx) => {
     const tradeIds = (
       await tx.select({ id: schema.trades.id }).from(schema.trades).where(eq(schema.trades.accountId, id))
@@ -32,13 +34,18 @@ export async function deleteAccount(id: number): Promise<Result> {
     for (let i = 0; i < tradeIds.length; i += 500) {
       const chunk = tradeIds.slice(i, i + 500);
       await tx.delete(schema.tradeTags).where(inArray(schema.tradeTags.tradeId, chunk));
-      await tx.delete(schema.screenshots).where(inArray(schema.screenshots.tradeId, chunk));
+      const shots = await tx
+        .delete(schema.screenshots)
+        .where(inArray(schema.screenshots.tradeId, chunk))
+        .returning({ filePath: schema.screenshots.filePath });
+      files.push(...shots.map((s) => s.filePath));
     }
     await tx.delete(schema.executions).where(eq(schema.executions.accountId, id));
     await tx.delete(schema.trades).where(eq(schema.trades.accountId, id));
     await tx.delete(schema.imports).where(eq(schema.imports.accountId, id));
     await tx.delete(schema.accounts).where(eq(schema.accounts.id, id));
   });
+  await Promise.all(files.map(removeImage));
   return done();
 }
 
@@ -108,9 +115,11 @@ export async function eraseAllData(confirmation: string): Promise<Result> {
   if (confirmation.trim().toLowerCase() !== "erase everything") {
     return { ok: false, error: "Type “erase everything” to confirm." };
   }
+  const files: string[] = [];
   await db.transaction(async (tx) => {
     await tx.delete(schema.tradeTags);
-    await tx.delete(schema.screenshots);
+    const shots = await tx.delete(schema.screenshots).returning({ filePath: schema.screenshots.filePath });
+    files.push(...shots.map((s) => s.filePath));
     await tx.delete(schema.executions);
     await tx.delete(schema.playbooks);
     await tx.delete(schema.trades);
@@ -120,5 +129,6 @@ export async function eraseAllData(confirmation: string): Promise<Result> {
     await tx.delete(schema.tagGroups);
     await tx.delete(schema.accounts);
   });
+  await Promise.all(files.map(removeImage));
   return done();
 }

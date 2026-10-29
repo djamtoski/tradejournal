@@ -16,6 +16,8 @@ export interface FileUploadProps
   onFileRemove?: () => void;
   accept?: string;
   hint?: string;
+  /** Main prompt in the empty drop area. */
+  title?: string;
   /** The currently selected file, if any. */
   file?: File | null;
 }
@@ -25,6 +27,7 @@ export function FileUpload({
   onFileRemove,
   accept,
   hint,
+  title = "Drop your broker export here",
   file,
   className,
   ...props
@@ -128,7 +131,7 @@ export function FileUpload({
       </span>
       <div>
         <p className="text-[14px] text-foreground">
-          Drop your broker export here{" "}
+          {title}{" "}
           <span className="text-muted-foreground">or click to browse</span>
         </p>
         {hint && <p className="mt-1 text-[12px] text-faint">{hint}</p>}

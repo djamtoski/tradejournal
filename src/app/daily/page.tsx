@@ -5,6 +5,8 @@ import { PageHeader, Segment, Segmented } from "@/components/shell/page-header";
 import { Kpi, Panel } from "@/components/dashboard/card";
 import { IntradayChart } from "@/components/daily/intraday-chart";
 import { JournalEditor } from "@/components/daily/journal-editor";
+import { ScreenshotThumb } from "@/components/screenshots/thumb";
+import { getScreenshots } from "@/lib/screenshots/queries";
 import { cn } from "@/lib/utils";
 import { addDays, dayKey, monthKey, parseDay } from "@/lib/dates";
 import {
@@ -36,11 +38,12 @@ async function Daily({ searchParams }: { searchParams: PageProps<"/daily">["sear
   const day = requested ?? (last ? new Date(last.getFullYear(), last.getMonth(), last.getDate()) : new Date());
   const key = dayKey(day);
 
-  const [trades, prev, next, entry] = await Promise.all([
+  const [trades, prev, next, entry, shots] = await Promise.all([
     getClosedTradesBetween(day, addDays(day, 1)),
     getAdjacentTradingDay(day, "prev"),
     getAdjacentTradingDay(day, "next"),
     getJournalEntry(key),
+    getScreenshots({ day: key }),
   ]);
 
   const title = day.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
@@ -85,14 +88,36 @@ async function Daily({ searchParams }: { searchParams: PageProps<"/daily">["sear
             </Panel>
           )}
         </div>
-        <Panel title="Journal" className="self-start">
-          <JournalEditor
-            key={key}
-            day={key}
-            initialContent={entry?.content ?? ""}
-            initialFollowedRules={entry?.followedRules ?? null}
-          />
-        </Panel>
+        <div className="flex flex-col gap-4 self-start">
+          <Panel title="Journal">
+            <JournalEditor
+              key={key}
+              day={key}
+              initialContent={entry?.content ?? ""}
+              initialFollowedRules={entry?.followedRules ?? null}
+            />
+          </Panel>
+          <Panel
+            title="Screenshots"
+            meta={
+              <Link href={`/screenshots?day=${key}`} className="hover:text-foreground">
+                Add
+              </Link>
+            }
+          >
+            {shots.length ? (
+              <div className="grid grid-cols-2 gap-2 px-4 pb-4 pt-2">
+                {shots.map((item) => (
+                  <ScreenshotThumb key={item.id} item={item} compact />
+                ))}
+              </div>
+            ) : (
+              <p className="px-4 pb-4 pt-1 text-[13px] text-faint">
+                Paste or drop a chart to annotate this day&apos;s trades.
+              </p>
+            )}
+          </Panel>
+        </div>
       </div>
     </>
   );

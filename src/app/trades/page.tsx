@@ -5,6 +5,9 @@ import { PageHeader, Segment, Segmented } from "@/components/shell/page-header";
 import { Panel } from "@/components/dashboard/card";
 import { FilterRow } from "@/components/trades/filter-row";
 import { TradeEditor } from "@/components/trades/trade-editor";
+import { ScreenshotThumb } from "@/components/screenshots/thumb";
+import { getScreenshots } from "@/lib/screenshots/queries";
+import { dayKey } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import { ranges } from "@/lib/filters";
 import { getAllTags, getClosedTrades, getTagGroups, getTradeDetail } from "@/lib/queries";
@@ -205,7 +208,12 @@ function TradeTable({ trades, f }: { trades: Awaited<ReturnType<typeof getClosed
 }
 
 async function TradeDetail({ id, f }: { id: number; f: TradeFilters }) {
-  const [detail, allTags, groups] = await Promise.all([getTradeDetail(id), getAllTags(), getTagGroups()]);
+  const [detail, allTags, groups, shots] = await Promise.all([
+    getTradeDetail(id),
+    getAllTags(),
+    getTagGroups(),
+    getScreenshots({ tradeId: id }),
+  ]);
   if (!detail) {
     return (
       <Panel className="p-4 text-[13px] text-muted-foreground">
@@ -279,6 +287,27 @@ async function TradeDetail({ id, f }: { id: number; f: TradeFilters }) {
           targetPrice: t.targetPrice,
         }}
       />
+
+      <div className="border-t border-border px-4 py-3">
+        <div className="flex items-center justify-between">
+          <span className="text-[12px] text-muted-foreground">Screenshots</span>
+          <Link
+            href={`/screenshots?day=${dayKey(t.openedAt)}&trade=${t.id}`}
+            className="text-[12px] text-faint hover:text-foreground"
+          >
+            Add
+          </Link>
+        </div>
+        {shots.length ? (
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            {shots.map((item) => (
+              <ScreenshotThumb key={item.id} item={item} compact />
+            ))}
+          </div>
+        ) : (
+          <p className="mt-1 text-[12px] text-faint">No charts attached yet.</p>
+        )}
+      </div>
 
       <div className="border-t border-border px-4 py-3">
         <span className="text-[12px] text-muted-foreground">Fills</span>
