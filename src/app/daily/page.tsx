@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { monthKey, parseDay } from "@/lib/dates";
 import {
   getAccounts,
+  getOpenTrades,
   getAdjacentTradingDay,
   getClosedTradesInDays,
   getJournalEntry,
@@ -43,12 +44,13 @@ async function Daily({ searchParams }: { searchParams: PageProps<"/daily">["sear
   const key = requested ?? lastDay ?? dayKey(new Date(), timezone);
   const day = parseDay(key)!; // civil date, for labels only
 
-  const [trades, prev, next, entry, shots] = await Promise.all([
+  const [trades, prev, next, entry, shots, open] = await Promise.all([
     getClosedTradesInDays(key, addDaysKey(key, 1), filters),
     getAdjacentTradingDay(key, "prev", filters),
     getAdjacentTradingDay(key, "next", filters),
     getJournalEntry(key),
     getScreenshots({ day: key }),
+    getOpenTrades(filters, key),
   ]);
 
   const title = day.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
@@ -87,6 +89,27 @@ async function Daily({ searchParams }: { searchParams: PageProps<"/daily">["sear
                   You can still write in your journal. Use the arrows to jump between trading days.
                 </p>
               </div>
+            </Panel>
+          )}
+          {open.length > 0 && (
+            <Panel title="Still open" meta="Opened this day">
+              <ul className="divide-y divide-border">
+                {open.map((t) => (
+                  <li key={t.id}>
+                    <Link
+                      href={`/trades?range=all&trade=${t.id}`}
+                      className="flex h-10 items-center gap-3 px-4 text-[13px] transition-colors hover:bg-muted/50"
+                    >
+                      <span className="num text-muted-foreground">{formatTime(t.openedAt, timezone)}</span>
+                      <span className="font-medium">{t.symbol}</span>
+                      <span className="text-muted-foreground">
+                        {t.side === "long" ? "Long" : "Short"} {t.quantity.toLocaleString()} @ {t.entryPrice.toLocaleString("en-US", { maximumFractionDigits: 4 })}
+                      </span>
+                      <span className="ml-auto text-[12px] text-faint">{t.account}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             </Panel>
           )}
         </div>

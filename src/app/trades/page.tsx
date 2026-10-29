@@ -7,13 +7,16 @@ import { readFilters } from "@/lib/filters-server";
 import { Panel } from "@/components/dashboard/card";
 import { FilterRow } from "@/components/trades/filter-row";
 import { TradeEditor } from "@/components/trades/trade-editor";
+import { TradeFormDialog } from "@/components/trades/trade-form";
+import { DeleteTradeButton } from "@/components/trades/delete-trade";
+import { toLocalDateTime } from "@/lib/trades/manual";
 import { ScreenshotThumb } from "@/components/screenshots/thumb";
 import { getScreenshots } from "@/lib/screenshots/queries";
 import { parseDay } from "@/lib/dates";
 import { getSettings } from "@/lib/settings/queries";
 import { dayKey, formatDateTime, formatTime } from "@/lib/tz";
 import { cn } from "@/lib/utils";
-import { getAccounts, getAllTags, getClosedTrades, getTagGroups, getTradeDetail } from "@/lib/queries";
+import { getAccounts, getAllTags, getClosedTrades, getOpenTrades, getTagGroups, getTradeDetail } from "@/lib/queries";
 import { applyTradeFilters, parseTradeFilters, tradesHref, type SortKey, type TradeFilters } from "@/lib/trades/filters";
 import { pnlOf, summarize } from "@/lib/stats";
 import { formatPct, formatPnl, pnlTone } from "@/lib/format";
@@ -32,12 +35,14 @@ async function Trades({ searchParams }: { searchParams: PageProps<"/trades">["se
   const sp = await searchParams;
   const shared = await readFilters(sp);
   const f = parseTradeFilters(sp, shared.mode);
-  const [all, tags, { timezone }, accounts] = await Promise.all([
+  const [all, tags, { timezone }, accounts, open] = await Promise.all([
     getClosedTrades(shared.range, shared),
     getAllTags(),
     getSettings(),
     getAccounts(),
+    getOpenTrades(shared),
   ]);
+  const nowLocal = toLocalDateTime(new Date(), timezone);
   const trades = applyTradeFilters(all, f);
   const s = summarize(trades, f.mode);
   const pages = Math.max(1, Math.ceil(trades.length / PAGE_SIZE));
@@ -48,6 +53,7 @@ async function Trades({ searchParams }: { searchParams: PageProps<"/trades">["se
     <>
       <PageHeader title="Trades">
         <FilterBar filters={shared} accounts={accounts} />
+        {accounts.length > 0 && <TradeFormDialog accounts={accounts} defaultOpenedAt={nowLocal} />}
       </PageHeader>
 
       <div className="mx-auto flex max-w-[1500px] flex-col gap-4 p-6">
@@ -60,6 +66,8 @@ async function Trades({ searchParams }: { searchParams: PageProps<"/trades">["se
         </div>
 
         <div className={cn("grid items-start gap-4", f.trade && "xl:grid-cols-[minmax(0,1fr)_380px]")}>
+          <div className="flex min-w-0 flex-col gap-4">
+          {open.length > 0 && <OpenPositions trades={open} f={f} timezone={timezone} />}
           <Panel className="overflow-hidden">
             {visible.length ? (
               <TradeTable trades={visible} f={f} timezone={timezone} />
@@ -82,9 +90,11 @@ async function Trades({ searchParams }: { searchParams: PageProps<"/trades">["se
             )}
           </Panel>
 
+          </div>
+
           {f.trade && (
             <Suspense key={f.trade} fallback={<div className="h-[600px] animate-pulse rounded-[10px] border border-border bg-card" />}>
-              <TradeDetail id={f.trade} f={f} timezone={timezone} />
+              <TradeDetail id={f.trade} f={f} timezone={timezone} accounts={accounts} />
             </Suspense>
           )}
         </div>
@@ -213,7 +223,17 @@ function TradeTable({
   );
 }
 
-async function TradeDetail({ id, f, timezone }: { id: number; f: TradeFilters; timezone: string }) {
+async function TradeDetail({
+  id,
+  f,
+  timezone,
+  accounts,
+}: {
+  id: number;
+  f: TradeFilters;
+  timezone: string;
+  accounts: { id: number; name: string }[];
+}) {
   const [detail, allTags, groups, shots] = await Promise.all([
     getTradeDetail(id),
     getAllTags(),
@@ -253,7 +273,11 @@ async function TradeDetail({ id, f, timezone }: { id: number; f: TradeFilters; t
           </span>
         </div>
         <div className="flex items-start gap-3">
-          <span className={cn("num text-[20px] leading-none", pnlTone(pnl))}>{formatPnl(pnl, true)}</span>
+          {t.closedAt ? (
+            <span className={cn("num text-[20px] leading-none", pnlTone(pnl))}>{formatPnl(pnl, true)}</span>
+          ) : (
+            <span className="rounded bg-muted px-2 py-0.5 text-[12px] text-muted-foreground">Open</span>
+          )}
           <Link
             href={tradesHref(f, { trade: null })}
             scroll={false}
@@ -273,6 +297,33 @@ async function TradeDetail({ id, f, timezone }: { id: number; f: TradeFilters; t
           </div>
         ))}
       </dl>
+
+      {detail.manual && (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
+          <TradeFormDialog
+            key={`edit-${t.id}`}
+            accounts={accounts}
+            defaultOpenedAt={toLocalDateTime(t.openedAt, timezone)}
+            trade={{
+              id: t.id,
+              values: {
+                accountId: t.accountId,
+                symbol: t.symbol,
+                assetClass: t.assetClass,
+                side: t.side,
+                quantity: t.quantity,
+                multiplier: t.multiplier,
+                entryPrice: t.entryPrice,
+                exitPrice: t.exitPrice,
+                openedAt: toLocalDateTime(t.openedAt, timezone),
+                closedAt: t.closedAt ? toLocalDateTime(t.closedAt, timezone) : null,
+                fees: t.fees,
+              },
+            }}
+          />
+          <DeleteTradeButton id={t.id} closeHref={tradesHref(f, { trade: null })} />
+        </div>
+      )}
 
       <TradeEditor
         key={t.id}
@@ -335,6 +386,57 @@ async function TradeDetail({ id, f, timezone }: { id: number; f: TradeFilters; t
         ) : (
           <p className="mt-1 text-[12px] text-faint">Entered manually, no fills recorded.</p>
         )}
+      </div>
+    </Panel>
+  );
+}
+
+function OpenPositions({
+  trades,
+  f,
+  timezone,
+}: {
+  trades: Awaited<ReturnType<typeof getOpenTrades>>;
+  f: TradeFilters;
+  timezone: string;
+}) {
+  return (
+    <Panel title="Open positions" meta={`${trades.length}`}>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[640px] text-[13px]">
+          <thead className="text-[12px] text-faint">
+            <tr className="border-b border-border">
+              <th className="py-2 pl-4 pr-2 text-left font-normal">Opened</th>
+              <th className="px-2 py-2 text-left font-normal">Symbol</th>
+              <th className="px-2 py-2 text-left font-normal">Side</th>
+              <th className="px-2 py-2 text-right font-normal">Qty</th>
+              <th className="px-2 py-2 text-right font-normal">Entry</th>
+              <th className="px-2 py-2 text-right font-normal">Stop</th>
+              <th className="py-2 pl-2 pr-4 text-left font-normal">Account</th>
+            </tr>
+          </thead>
+          <tbody>
+            {trades.map((t) => (
+              <tr key={t.id} className={cn("relative h-10 border-b border-border last:border-0 transition-colors", f.trade === t.id ? "bg-muted" : "hover:bg-muted/50")}>
+                <td className="num whitespace-nowrap py-0 pl-4 pr-2 text-muted-foreground">
+                  <Link href={tradesHref(f, { trade: f.trade === t.id ? null : t.id })} scroll={false} className="after:absolute after:inset-0">
+                    {formatDateTime(t.openedAt, timezone)}
+                  </Link>
+                </td>
+                <td className="px-2 font-medium">{t.symbol}</td>
+                <td className="px-2">
+                  <span className={cn("rounded px-1.5 py-0.5 text-[11px]", t.side === "long" ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground")}>
+                    {t.side === "long" ? "Long" : "Short"}
+                  </span>
+                </td>
+                <td className="num px-2 text-right">{t.quantity.toLocaleString()}</td>
+                <td className="num px-2 text-right text-muted-foreground">{price(t.entryPrice)}</td>
+                <td className="num px-2 text-right text-muted-foreground">{price(t.stopPrice)}</td>
+                <td className="py-0 pl-2 pr-4 text-muted-foreground">{t.account}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </Panel>
   );

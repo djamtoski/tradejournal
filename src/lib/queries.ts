@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, isNotNull, lt } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lt } from "drizzle-orm";
 import { connection } from "next/server";
 import { db, schema } from "@/db";
 import { rangeStart, type RangeId, type Scope } from "./filters";
@@ -110,6 +110,37 @@ export async function getClosedTradesBetween(
 /** Tags in a group named "Mistake(s)" are tracked separately from setups. */
 export const isMistakeGroup = (group: string | null) => !!group && /^mistakes?$/i.test(group.trim());
 
+/** Positions not yet closed (manual or imported), oldest first. Optionally only those opened on `day`. */
+export async function getOpenTrades(scope?: Scope, day?: string) {
+  await connection();
+  const { trades } = schema;
+  const { timezone } = await getSettings();
+  const rows = await db
+    .select({
+      id: trades.id,
+      symbol: trades.symbol,
+      side: trades.side,
+      assetClass: trades.assetClass,
+      quantity: trades.quantity,
+      entryPrice: trades.entryPrice,
+      openedAt: trades.openedAt,
+      stopPrice: trades.stopPrice,
+      account: schema.accounts.name,
+    })
+    .from(trades)
+    .innerJoin(schema.accounts, eq(schema.accounts.id, trades.accountId))
+    .where(
+      and(
+        isNull(trades.closedAt),
+        scopeWhere(scope),
+        day ? gte(trades.openedAt, startOfDay(day, timezone)) : undefined,
+        day ? lt(trades.openedAt, startOfDay(addDaysKey(day, 1), timezone)) : undefined,
+      ),
+    )
+    .orderBy(asc(trades.openedAt));
+  return rows;
+}
+
 export async function getAccounts() {
   return db
     .select({ id: schema.accounts.id, name: schema.accounts.name })
@@ -150,7 +181,7 @@ export async function getTradeDetail(id: number) {
       .from(schema.tradeTags)
       .where(eq(schema.tradeTags.tradeId, id)),
   ]);
-  return { trade, fills, tagIds: tagLinks.map((t) => t.tagId) };
+  return { trade, fills, tagIds: tagLinks.map((t) => t.tagId), manual: fills.length === 0 };
 }
 
 /** Trading day (in the trading timezone) of the most recent close, used as a default. */

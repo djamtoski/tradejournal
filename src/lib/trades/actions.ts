@@ -1,8 +1,11 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { count, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db, schema } from "@/db";
+import { removeImage } from "@/lib/screenshots/storage";
+import { getSettings } from "@/lib/settings/queries";
+import { validateManualTrade, type FieldErrors, type ManualTradeInput } from "./manual";
 
 const finiteOrNull = (n: unknown) =>
   typeof n === "number" && Number.isFinite(n) ? n : null;
@@ -55,4 +58,61 @@ export async function createTag(name: string, groupId: number | null) {
     .returning({ id: schema.tags.id });
   revalidatePath("/", "layout");
   return { ok: true as const, id: row.id };
+}
+
+type SaveResult = { ok: true; id: number } | { ok: false; errors: FieldErrors; error?: string };
+
+/** Trades built from imported fills are regrouped on import, so only hand-entered ones are editable. */
+async function hasFills(tradeId: number) {
+  const [row] = await db
+    .select({ n: count() })
+    .from(schema.executions)
+    .where(eq(schema.executions.tradeId, tradeId));
+  return row.n > 0;
+}
+
+export async function createTrade(input: ManualTradeInput): Promise<SaveResult> {
+  const { timezone } = await getSettings();
+  const res = validateManualTrade(input, timezone);
+  if (!res.ok) return res;
+  const account = await db.query.accounts.findFirst({ where: eq(schema.accounts.id, res.values.accountId) });
+  if (!account) return { ok: false, errors: { accountId: "Choose an account." } };
+
+  const [row] = await db.insert(schema.trades).values(res.values).returning({ id: schema.trades.id });
+  revalidatePath("/", "layout");
+  return { ok: true, id: row.id };
+}
+
+export async function updateTradeCore(id: number, input: ManualTradeInput): Promise<SaveResult> {
+  if (await hasFills(id)) {
+    return { ok: false, errors: {}, error: "This trade came from an import. Edit the broker file and re-import instead." };
+  }
+  const { timezone } = await getSettings();
+  const res = validateManualTrade(input, timezone);
+  if (!res.ok) return res;
+  const account = await db.query.accounts.findFirst({ where: eq(schema.accounts.id, res.values.accountId) });
+  if (!account) return { ok: false, errors: { accountId: "Choose an account." } };
+
+  await db.update(schema.trades).set(res.values).where(eq(schema.trades.id, id));
+  revalidatePath("/", "layout");
+  return { ok: true, id };
+}
+
+export async function deleteTrade(id: number): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (await hasFills(id)) {
+    return { ok: false, error: "This trade came from an import. Undo the import to remove it." };
+  }
+  // SQLite doesn't enforce FK cascades here, so remove children explicitly.
+  const files = await db.transaction(async (tx) => {
+    await tx.delete(schema.tradeTags).where(eq(schema.tradeTags.tradeId, id));
+    const shots = await tx
+      .delete(schema.screenshots)
+      .where(eq(schema.screenshots.tradeId, id))
+      .returning({ filePath: schema.screenshots.filePath });
+    await tx.delete(schema.trades).where(eq(schema.trades.id, id));
+    return shots.map((s) => s.filePath);
+  });
+  await Promise.all(files.map(removeImage));
+  revalidatePath("/", "layout");
+  return { ok: true };
 }
