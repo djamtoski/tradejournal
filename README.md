@@ -1,5 +1,8 @@
 # Ledger
 
+[![CI](https://github.com/djamtoski/tradejournal/actions/workflows/ci.yml/badge.svg)](https://github.com/djamtoski/tradejournal/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/djamtoski/tradejournal/actions/workflows/codeql.yml/badge.svg)](https://github.com/djamtoski/tradejournal/actions/workflows/codeql.yml)
+
 A private, local-first trading journal. Import your broker fills, see your
 P&L by day, setup, symbol and time, and keep a daily journal next to the
 numbers. Your data stays in a SQLite file on your machine.
