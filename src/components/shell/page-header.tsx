@@ -47,7 +47,7 @@ export function FilterBar({ filters, path = "/" }: { filters: Filters; path?: st
   );
 }
 
-function Segmented({ children }: { children: React.ReactNode }) {
+export function Segmented({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-7 items-center gap-0.5 rounded-md border border-border bg-card p-0.5">
       {children}
@@ -55,7 +55,7 @@ function Segmented({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Segment({
+export function Segment({
   href,
   active,
   children,
