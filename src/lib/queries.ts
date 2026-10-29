@@ -2,7 +2,9 @@ import { and, asc, desc, eq, gte, isNotNull, lt } from "drizzle-orm";
 import { connection } from "next/server";
 import { db, schema } from "@/db";
 import { rangeStart, type RangeId } from "./filters";
+import { getSettings } from "./settings/queries";
 import type { StatTrade } from "./stats";
+import { addDaysKey, dayKey, startOfDay, zonedParts } from "./tz";
 
 export type JournalTrade = StatTrade & {
   assetClass: string;
@@ -20,7 +22,14 @@ export type JournalTrade = StatTrade & {
 export async function getClosedTrades(range: RangeId): Promise<JournalTrade[]> {
   // Ranges are relative to "now", so this must render per request.
   await connection();
-  return getClosedTradesBetween(rangeStart(range), null);
+  const { timezone } = await getSettings();
+  return getClosedTradesBetween(rangeStart(range, timezone), null);
+}
+
+/** Closed trades on trading days [startDay, endDay) — keys in the trading timezone. */
+export async function getClosedTradesInDays(startDay: string, endDay: string) {
+  const { timezone } = await getSettings();
+  return getClosedTradesBetween(startOfDay(startDay, timezone), startOfDay(endDay, timezone));
 }
 
 /** Closed trades with closedAt in [start, end). Either bound may be open. */
@@ -30,6 +39,7 @@ export async function getClosedTradesBetween(
 ): Promise<JournalTrade[]> {
   await connection();
   const { trades } = schema;
+  const { timezone } = await getSettings();
 
   const rows = await db.query.trades.findMany({
     where: and(
@@ -72,12 +82,18 @@ export async function getClosedTradesBetween(
     tagsByTrade.set(tradeId, entry);
   }
 
-  return rows.map((r) => ({
-    ...r,
-    closedAt: r.closedAt!,
-    tags: tagsByTrade.get(r.id)?.tags ?? [],
-    mistakes: tagsByTrade.get(r.id)?.mistakes ?? [],
-  }));
+  return rows.map((r) => {
+    const opened = zonedParts(r.openedAt, timezone);
+    return {
+      ...r,
+      closedAt: r.closedAt!,
+      day: dayKey(r.closedAt!, timezone),
+      openHour: opened.hour,
+      openWeekday: opened.weekday,
+      tags: tagsByTrade.get(r.id)?.tags ?? [],
+      mistakes: tagsByTrade.get(r.id)?.mistakes ?? [],
+    };
+  });
 }
 
 /** Tags in a group named "Mistake(s)" are tracked separately from setups. */
@@ -119,35 +135,36 @@ export async function getTradeDetail(id: number) {
   return { trade, fills, tagIds: tagLinks.map((t) => t.tagId) };
 }
 
-/** Most recent close time, used to pick a default day or month. */
-export async function getLastTradeDate(): Promise<Date | null> {
+/** Trading day (in the trading timezone) of the most recent close, used as a default. */
+export async function getLastTradeDay(): Promise<string | null> {
   await connection();
-  const [row] = await db
-    .select({ closedAt: schema.trades.closedAt })
-    .from(schema.trades)
-    .where(isNotNull(schema.trades.closedAt))
-    .orderBy(desc(schema.trades.closedAt))
-    .limit(1);
-  return row?.closedAt ?? null;
+  const [[row], { timezone }] = await Promise.all([
+    db
+      .select({ closedAt: schema.trades.closedAt })
+      .from(schema.trades)
+      .where(isNotNull(schema.trades.closedAt))
+      .orderBy(desc(schema.trades.closedAt))
+      .limit(1),
+    getSettings(),
+  ]);
+  return row?.closedAt ? dayKey(row.closedAt, timezone) : null;
 }
 
-/** Nearest trading day before/after `day` (exclusive), as a Date at local midnight. */
-export async function getAdjacentTradingDay(day: Date, direction: "prev" | "next") {
+/** Nearest trading day before/after `day` (exclusive), as a day key. */
+export async function getAdjacentTradingDay(day: string, direction: "prev" | "next") {
   const { trades } = schema;
-  const nextMidnight = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1);
+  const { timezone } = await getSettings();
   const [row] = await db
     .select({ closedAt: trades.closedAt })
     .from(trades)
     .where(
       direction === "prev"
-        ? and(isNotNull(trades.closedAt), lt(trades.closedAt, day))
-        : and(isNotNull(trades.closedAt), gte(trades.closedAt, nextMidnight)),
+        ? and(isNotNull(trades.closedAt), lt(trades.closedAt, startOfDay(day, timezone)))
+        : and(isNotNull(trades.closedAt), gte(trades.closedAt, startOfDay(addDaysKey(day, 1), timezone))),
     )
     .orderBy(direction === "prev" ? desc(trades.closedAt) : asc(trades.closedAt))
     .limit(1);
-  if (!row?.closedAt) return null;
-  const d = row.closedAt;
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  return row?.closedAt ? dayKey(row.closedAt, timezone) : null;
 }
 
 export async function getJournalEntry(day: string) {

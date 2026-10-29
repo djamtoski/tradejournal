@@ -7,7 +7,9 @@ import { FilterRow } from "@/components/trades/filter-row";
 import { TradeEditor } from "@/components/trades/trade-editor";
 import { ScreenshotThumb } from "@/components/screenshots/thumb";
 import { getScreenshots } from "@/lib/screenshots/queries";
-import { dayKey } from "@/lib/dates";
+import { parseDay } from "@/lib/dates";
+import { getSettings } from "@/lib/settings/queries";
+import { dayKey, formatDateTime, formatTime } from "@/lib/tz";
 import { cn } from "@/lib/utils";
 import { ranges } from "@/lib/filters";
 import { getAllTags, getClosedTrades, getTagGroups, getTradeDetail } from "@/lib/queries";
@@ -27,7 +29,7 @@ export default function TradesPage({ searchParams }: PageProps<"/trades">) {
 
 async function Trades({ searchParams }: { searchParams: PageProps<"/trades">["searchParams"] }) {
   const f = parseTradeFilters(await searchParams);
-  const [all, tags] = await Promise.all([getClosedTrades(f.range), getAllTags()]);
+  const [all, tags, { timezone }] = await Promise.all([getClosedTrades(f.range), getAllTags(), getSettings()]);
   const trades = applyTradeFilters(all, f);
   const s = summarize(trades, f.mode);
   const pages = Math.max(1, Math.ceil(trades.length / PAGE_SIZE));
@@ -62,7 +64,7 @@ async function Trades({ searchParams }: { searchParams: PageProps<"/trades">["se
         <div className={cn("grid items-start gap-4", f.trade && "xl:grid-cols-[minmax(0,1fr)_380px]")}>
           <Panel className="overflow-hidden">
             {visible.length ? (
-              <TradeTable trades={visible} f={f} />
+              <TradeTable trades={visible} f={f} timezone={timezone} />
             ) : (
               <div className="flex flex-col items-center gap-2 px-6 py-16 text-center">
                 <h2 className="text-[17px]">No trades match these filters</h2>
@@ -84,7 +86,7 @@ async function Trades({ searchParams }: { searchParams: PageProps<"/trades">["se
 
           {f.trade && (
             <Suspense key={f.trade} fallback={<div className="h-[600px] animate-pulse rounded-[10px] border border-border bg-card" />}>
-              <TradeDetail id={f.trade} f={f} />
+              <TradeDetail id={f.trade} f={f} timezone={timezone} />
             </Suspense>
           )}
         </div>
@@ -117,7 +119,15 @@ function hold(a: Date, b: Date) {
   return `${Math.floor(mins / 1440)}d`;
 }
 
-function TradeTable({ trades, f }: { trades: Awaited<ReturnType<typeof getClosedTrades>>; f: TradeFilters }) {
+function TradeTable({
+  trades,
+  f,
+  timezone,
+}: {
+  trades: Awaited<ReturnType<typeof getClosedTrades>>;
+  f: TradeFilters;
+  timezone: string;
+}) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[900px] text-[13px]">
@@ -167,10 +177,8 @@ function TradeTable({ trades, f }: { trades: Awaited<ReturnType<typeof getClosed
                     className="after:absolute after:inset-0"
                     aria-label={`${t.symbol} ${t.side} on ${t.openedAt.toDateString()}`}
                   >
-                    {t.openedAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}{" "}
-                    <span className="text-faint">
-                      {t.openedAt.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })}
-                    </span>
+                    {parseDay(t.day)!.toLocaleDateString("en-US", { month: "short", day: "numeric" })}{" "}
+                    <span className="text-faint">{formatTime(t.openedAt, timezone)}</span>
                   </Link>
                 </td>
                 <td className="num px-2 text-faint">{hold(t.openedAt, t.closedAt)}</td>
@@ -207,7 +215,7 @@ function TradeTable({ trades, f }: { trades: Awaited<ReturnType<typeof getClosed
   );
 }
 
-async function TradeDetail({ id, f }: { id: number; f: TradeFilters }) {
+async function TradeDetail({ id, f, timezone }: { id: number; f: TradeFilters; timezone: string }) {
   const [detail, allTags, groups, shots] = await Promise.all([
     getTradeDetail(id),
     getAllTags(),
@@ -243,7 +251,7 @@ async function TradeDetail({ id, f }: { id: number; f: TradeFilters }) {
             </span>
           </div>
           <span className="num text-[12px] text-faint">
-            {t.openedAt.toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })}
+            {formatDateTime(t.openedAt, timezone, { weekday: "short" })}
           </span>
         </div>
         <div className="flex items-start gap-3">
@@ -292,7 +300,7 @@ async function TradeDetail({ id, f }: { id: number; f: TradeFilters }) {
         <div className="flex items-center justify-between">
           <span className="text-[12px] text-muted-foreground">Screenshots</span>
           <Link
-            href={`/screenshots?day=${dayKey(t.openedAt)}&trade=${t.id}`}
+            href={`/screenshots?day=${dayKey(t.closedAt ?? t.openedAt, timezone)}&trade=${t.id}`}
             className="text-[12px] text-faint hover:text-foreground"
           >
             Add
@@ -317,7 +325,7 @@ async function TradeDetail({ id, f }: { id: number; f: TradeFilters }) {
               {fills.map((x) => (
                 <tr key={x.id} className="h-7">
                   <td className="num text-faint">
-                    {x.executedAt.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })}
+                    {formatTime(x.executedAt, timezone, true)}
                   </td>
                   <td className={x.action === "buy" ? "text-foreground" : "text-muted-foreground"}>{x.action === "buy" ? "Buy" : "Sell"}</td>
                   <td className="num text-right">{x.quantity.toLocaleString()}</td>

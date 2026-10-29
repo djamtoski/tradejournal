@@ -18,6 +18,12 @@ const createdAt = () =>
 export const assetClasses = ["stock", "future", "forex", "option"] as const;
 export const sides = ["long", "short"] as const;
 
+/** App-wide preferences as key/value pairs (see src/lib/settings/queries.ts). */
+export const settings = sqliteTable("settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+});
+
 export const accounts = sqliteTable("accounts", {
   id: id(),
   name: text("name").notNull(),

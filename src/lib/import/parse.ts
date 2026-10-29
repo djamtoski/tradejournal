@@ -3,6 +3,8 @@
  * mapping. Runs in the browser (preview) and on the server (validation).
  */
 
+import { zonedInstant } from "../tz";
+
 export type AssetClass = "stock" | "future" | "forex" | "option";
 
 export type ParsedExecution = {
@@ -65,7 +67,7 @@ export function guessMapping(headers: string[], sample?: Record<string, string>)
     }
   }
   // A "datetime" guess holding only a time ("09:31:02") is really the time column.
-  if (mapping.datetime && sample && parseDateTime(sample[mapping.datetime] ?? "") === null) {
+  if (mapping.datetime && sample && parseDateTime(sample[mapping.datetime] ?? "", "UTC") === null) {
     if (!mapping.time) mapping.time = mapping.datetime;
     delete mapping.datetime;
   }
@@ -89,7 +91,7 @@ export type RowError = { row: number; message: string };
 export function parseRows(
   rows: Record<string, string>[],
   mapping: Mapping,
-  defaults: { assetClass: AssetClass; multiplier: number },
+  defaults: { assetClass: AssetClass; multiplier: number; timezone: string },
 ): { executions: ParsedExecution[]; errors: RowError[] } {
   const executions: ParsedExecution[] = [];
   const errors: RowError[] = [];
@@ -116,8 +118,8 @@ export function parseRows(
     if (!action) return void errors.push({ row: rowNo, message: `Unknown side "${sideText}"` });
 
     const when = mapping.datetime
-      ? parseDateTime(get(row, "datetime"))
-      : parseDateTime(`${get(row, "date")} ${get(row, "time")}`.trim());
+      ? parseDateTime(get(row, "datetime"), defaults.timezone)
+      : parseDateTime(`${get(row, "date")} ${get(row, "time")}`.trim(), defaults.timezone);
     if (when === null) return void errors.push({ row: rowNo, message: "Unreadable date or time" });
 
     const assetClass = parseAssetClass(get(row, "assetClass")) ?? defaults.assetClass;
@@ -170,26 +172,27 @@ function parseAssetClass(s: string): AssetClass | null {
 
 /**
  * Accepts ISO ("2026-10-05T09:31:02"), "2026-10-05 09:31", "10/05/2026 9:31:02 AM",
- * "05.10.2026 09:31". Times are read as local time.
+ * "05.10.2026 09:31". Times are wall-clock times in `tz` (the trading timezone).
  */
-export function parseDateTime(s: string): number | null {
+export function parseDateTime(s: string, tz: string): number | null {
   const v = s.trim();
   if (!v) return null;
 
   let m = v.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?\s*(am|pm)?)?/i);
-  if (m) return build(+m[1], +m[2], +m[3], m[4], m[5], m[6], m[7], m[8]);
+  if (m) return build(tz, +m[1], +m[2], +m[3], m[4], m[5], m[6], m[7], m[8]);
 
   // US month/day/year; dotted dates are day.month.year.
   m = v.match(/^(\d{1,2})([/.-])(\d{1,2})\2(\d{2,4})(?:[ ,T]+(\d{1,2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?\s*(am|pm)?)?/i);
   if (m) {
     const year = m[4].length === 2 ? 2000 + +m[4] : +m[4];
     const [month, day] = m[2] === "." ? [+m[3], +m[1]] : [+m[1], +m[3]];
-    return build(year, month, day, m[5], m[6], m[7], m[8], m[9]);
+    return build(tz, year, month, day, m[5], m[6], m[7], m[8], m[9]);
   }
   return null;
 }
 
 function build(
+  tz: string,
   y: number, mo: number, d: number,
   h?: string, mi?: string, sec?: string, frac?: string, ampm?: string,
 ): number | null {
@@ -200,9 +203,11 @@ function build(
     else if (pm) hour += 12;
   }
   const ms = frac ? Math.round(Number(`0.${frac}`) * 1000) : 0;
-  const date = new Date(y, mo - 1, d, hour, mi ? +mi : 0, sec ? +sec : 0, ms);
-  if (date.getMonth() !== mo - 1 || date.getDate() !== d) return null;
-  return date.getTime();
+  // Reject impossible dates (Feb 30) before converting the wall time to an instant.
+  const check = new Date(Date.UTC(y, mo - 1, d));
+  if (check.getUTCMonth() !== mo - 1 || check.getUTCDate() !== d) return null;
+  if (hour > 23 || (mi && +mi > 59) || (sec && +sec > 59)) return null;
+  return zonedInstant(tz, y, mo, d, hour, mi ? +mi : 0, sec ? +sec : 0, ms).getTime();
 }
 
 /**

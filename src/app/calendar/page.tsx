@@ -5,8 +5,10 @@ import { PageHeader, Segment, Segmented } from "@/components/shell/page-header";
 import { Panel } from "@/components/dashboard/card";
 import { pnlTint } from "@/components/calendar/tint";
 import { cn } from "@/lib/utils";
-import { addMonths, dayKey, monthKey, monthLabel, monthWeeks, parseMonth } from "@/lib/dates";
-import { getClosedTradesBetween, getLastTradeDate } from "@/lib/queries";
+import { addMonths, civilKey, monthKey, monthLabel, monthWeeks, parseDay, parseMonth } from "@/lib/dates";
+import { getClosedTradesInDays, getLastTradeDay } from "@/lib/queries";
+import { getSettings } from "@/lib/settings/queries";
+import { dayKey } from "@/lib/tz";
 import { dailySeries, summarize, type PnlMode } from "@/lib/stats";
 import { formatPct, formatPnl, pnlTone } from "@/lib/format";
 
@@ -30,7 +32,9 @@ export default function CalendarPage({ searchParams }: PageProps<"/calendar">) {
 
 async function Calendar({ searchParams }: { searchParams: PageProps<"/calendar">["searchParams"] }) {
   const sp = await searchParams;
-  const last = (await getLastTradeDate()) ?? new Date();
+  const [lastDay, { timezone }] = await Promise.all([getLastTradeDay(), getSettings()]);
+  const today = dayKey(new Date(), timezone);
+  const last = parseDay(lastDay ?? today)!;
   const state: State = {
     month: parseMonth(typeof sp.month === "string" ? sp.month : undefined, last),
     view: sp.view === "year" ? "year" : "month",
@@ -40,7 +44,7 @@ async function Calendar({ searchParams }: { searchParams: PageProps<"/calendar">
 
   const start = view === "year" ? new Date(month.getFullYear(), 0, 1) : month;
   const end = view === "year" ? new Date(month.getFullYear() + 1, 0, 1) : addMonths(month, 1);
-  const trades = await getClosedTradesBetween(start, end);
+  const trades = await getClosedTradesInDays(civilKey(start), civilKey(end));
   const days = new Map(dailySeries(trades, mode).map((d) => [d.day, d]));
   const summary = summarize(trades, mode);
 
@@ -71,7 +75,7 @@ async function Calendar({ searchParams }: { searchParams: PageProps<"/calendar">
 
       <div className="mx-auto grid max-w-[1400px] gap-4 p-6 xl:grid-cols-[minmax(0,1fr)_280px]">
         {view === "month" ? (
-          <MonthGrid month={month} days={days} />
+          <MonthGrid month={month} days={days} today={today} />
         ) : (
           <YearGrid year={month.getFullYear()} days={days} state={state} />
         )}
@@ -83,10 +87,9 @@ async function Calendar({ searchParams }: { searchParams: PageProps<"/calendar">
 
 type DayMap = Map<string, { day: string; pnl: number; trades: number }>;
 
-function MonthGrid({ month, days }: { month: Date; days: DayMap }) {
+function MonthGrid({ month, days, today }: { month: Date; days: DayMap; today: string }) {
   const weeks = monthWeeks(month);
   const max = Math.max(0, ...[...days.values()].map((d) => Math.abs(d.pnl)));
-  const today = dayKey(new Date());
 
   return (
     <Panel className="overflow-hidden">
@@ -96,7 +99,7 @@ function MonthGrid({ month, days }: { month: Date; days: DayMap }) {
         ))}
       </div>
       {weeks.map((week, wi) => {
-        const weekDays = week.filter(Boolean).map((d) => days.get(dayKey(d!))).filter(Boolean);
+        const weekDays = week.filter(Boolean).map((d) => days.get(civilKey(d!))).filter(Boolean);
         const weekPnl = weekDays.reduce((s, d) => s + d!.pnl, 0);
         const weekTrades = weekDays.reduce((s, d) => s + d!.trades, 0);
         return (
@@ -106,7 +109,7 @@ function MonthGrid({ month, days }: { month: Date; days: DayMap }) {
           >
             {week.map((date, di) => {
               if (!date) return <div key={di} className="h-24 border-r border-border bg-background/40" />;
-              const key = dayKey(date);
+              const key = civilKey(date);
               const d = days.get(key);
               const cell = (
                 <>
@@ -174,11 +177,11 @@ function YearGrid({ year, days, state }: { year: number; days: DayMap; state: St
             </div>
             <div className="grid grid-cols-7 gap-1">
               {monthWeeks(month).flat().map((date, i) => {
-                const d = date ? days.get(dayKey(date)) : undefined;
+                const d = date ? days.get(civilKey(date)) : undefined;
                 return (
                   <span
                     key={i}
-                    title={d ? `${dayKey(date!)} · ${formatPnl(d.pnl)}` : undefined}
+                    title={d ? `${civilKey(date!)} · ${formatPnl(d.pnl)}` : undefined}
                     className={cn("aspect-square rounded-[3px]", date ? "bg-muted" : "bg-transparent")}
                     style={d ? pnlTint(d.pnl, max) : undefined}
                   />

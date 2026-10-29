@@ -4,7 +4,8 @@
  */
 import { rm } from "node:fs/promises";
 import { db, schema } from "../src/db";
-import { dayKey } from "../src/lib/stats";
+import { eq } from "drizzle-orm";
+import { addDaysKey, dayKey, DEFAULT_TIMEZONE, isValidTimezone, zonedInstant } from "../src/lib/tz";
 
 // Deterministic PRNG so the sample data is stable between runs.
 let state = 42;
@@ -85,13 +86,16 @@ async function main() {
   const setupIds = tagRows.filter((t) => t.groupId === setups.id).map((t) => t.id);
   const mistakeIds = tagRows.filter((t) => t.groupId === mistakes.id).map((t) => t.id);
 
-  const end = new Date();
-  const start = new Date(end);
-  start.setMonth(start.getMonth() - 4);
+  // Trades are generated in the trading timezone so sessions land at 9:30–15:30 there.
+  const saved = await db.query.settings.findFirst({ where: eq(schema.settings.key, "timezone") });
+  const tz = saved && isValidTimezone(saved.value) ? saved.value : DEFAULT_TIMEZONE;
+  const endKey = dayKey(new Date(), tz);
+  const startKey = addDaysKey(endKey, -122);
 
   let tradeCount = 0;
-  for (const day = new Date(start); day <= end; day.setDate(day.getDate() + 1)) {
-    const dow = day.getDay();
+  for (let key = startKey; key <= endKey; key = addDaysKey(key, 1)) {
+    const [y, mo, d] = key.split("-").map(Number);
+    const dow = new Date(Date.UTC(y, mo - 1, d)).getUTCDay();
     if (dow === 0 || dow === 6 || rand() < 0.1) continue;
 
     const tradesToday = 1 + Math.floor(rand() * 5);
@@ -108,8 +112,7 @@ async function main() {
       const signed = side === "long" ? movePct : -movePct;
       const exit = +(Math.round((entry * (1 + signed)) / inst.tick) * inst.tick).toFixed(2);
 
-      const opened = new Date(day);
-      opened.setHours(9, 30 + Math.floor(rand() * 330), Math.floor(rand() * 60), 0);
+      const opened = zonedInstant(tz, y, mo, d, 9, 30 + Math.floor(rand() * 330), Math.floor(rand() * 60));
       const holdMinutes = 1 + Math.floor(rand() * (rand() < 0.8 ? 25 : 120));
       const closed = new Date(opened.getTime() + holdMinutes * 60_000);
 
@@ -152,7 +155,7 @@ async function main() {
 
     if (jrand() < 0.7) {
       await db.insert(schema.journalEntries).values({
-        day: dayKey(day),
+        day: key,
         content: jpick(mistakeToday ? badDays : goodDays),
         followedRules: !mistakeToday,
       });
