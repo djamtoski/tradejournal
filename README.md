@@ -1,36 +1,45 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Ledger
 
-## Getting Started
+A private, local-first trading journal. Import your broker fills, see your
+P&L by day, setup, symbol and time, and keep a daily journal next to the
+numbers. Your data stays in a SQLite file on your machine.
 
-First, run the development server:
+## Features
+
+- **Dashboard**: P&L, win rate, profit factor, expectancy, equity curve,
+  daily P&L, and breakdowns by setup, symbol, weekday and entry hour
+- **Calendar**: month and year views of daily P&L
+- **Daily**: intraday P&L, trades, per-symbol blotter and a journal
+- **Import**: any broker CSV, with automatic column matching, preview,
+  duplicate skipping, and fills grouped into round-trip trades
+
+## Stack
+
+Next.js 16, TypeScript, Tailwind CSS 4, shadcn/ui with Watermelon UI,
+Recharts, Drizzle ORM with SQLite (libSQL).
+
+## Getting started
 
 ```bash
+npm install
+npm run db:migrate   # create data/journal.db
+npm run db:seed      # optional: ~4 months of sample trades
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Script | What it does |
+|---|---|
+| `npm run dev` | Start the dev server |
+| `npm test` | Run unit tests |
+| `npm run db:generate` | Create a migration after changing `src/db/schema.ts` |
+| `npm run db:studio` | Browse the database |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Notes
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Built from a written feature spec as a clean-room project; it contains no
+code from other trading journals. The `.claude/skills` folder holds the
+design-system rules used when building screens with Claude Code;
+`web-design-engineer` is from
+[ConardLi/garden-skills](https://github.com/ConardLi/garden-skills) (MIT).
