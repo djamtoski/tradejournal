@@ -2,23 +2,24 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { PageHeader, Segment, Segmented } from "@/components/shell/page-header";
+import { FilterBar } from "@/components/shell/filter-bar";
+import { readFilters } from "@/lib/filters-server";
 import { Panel } from "@/components/dashboard/card";
 import { pnlTint } from "@/components/calendar/tint";
 import { cn } from "@/lib/utils";
 import { addMonths, civilKey, monthKey, monthLabel, monthWeeks, parseDay, parseMonth } from "@/lib/dates";
-import { getClosedTradesInDays, getLastTradeDay } from "@/lib/queries";
+import { getAccounts, getClosedTradesInDays, getLastTradeDay } from "@/lib/queries";
 import { getSettings } from "@/lib/settings/queries";
 import { dayKey } from "@/lib/tz";
-import { dailySeries, summarize, type PnlMode } from "@/lib/stats";
+import { dailySeries, summarize } from "@/lib/stats";
 import { formatPct, formatPnl, pnlTone } from "@/lib/format";
 
 type View = "month" | "year";
-type State = { month: Date; view: View; mode: PnlMode };
+type State = { month: Date; view: View };
 
-function href({ month, view, mode }: State) {
+function href({ month, view }: State) {
   const params = new URLSearchParams({ month: monthKey(month) });
   if (view === "year") params.set("view", "year");
-  if (mode === "gross") params.set("mode", "gross");
   return `/calendar?${params}`;
 }
 
@@ -32,19 +33,20 @@ export default function CalendarPage({ searchParams }: PageProps<"/calendar">) {
 
 async function Calendar({ searchParams }: { searchParams: PageProps<"/calendar">["searchParams"] }) {
   const sp = await searchParams;
-  const [lastDay, { timezone }] = await Promise.all([getLastTradeDay(), getSettings()]);
+  const filters = await readFilters(sp);
+  const { mode } = filters;
+  const [lastDay, { timezone }, accounts] = await Promise.all([getLastTradeDay(filters), getSettings(), getAccounts()]);
   const today = dayKey(new Date(), timezone);
   const last = parseDay(lastDay ?? today)!;
   const state: State = {
     month: parseMonth(typeof sp.month === "string" ? sp.month : undefined, last),
     view: sp.view === "year" ? "year" : "month",
-    mode: sp.mode === "gross" ? "gross" : "net",
   };
-  const { month, view, mode } = state;
+  const { month, view } = state;
 
   const start = view === "year" ? new Date(month.getFullYear(), 0, 1) : month;
   const end = view === "year" ? new Date(month.getFullYear() + 1, 0, 1) : addMonths(month, 1);
-  const trades = await getClosedTradesInDays(civilKey(start), civilKey(end));
+  const trades = await getClosedTradesInDays(civilKey(start), civilKey(end), filters);
   const days = new Map(dailySeries(trades, mode).map((d) => [d.day, d]));
   const summary = summarize(trades, mode);
 
@@ -67,10 +69,7 @@ async function Calendar({ searchParams }: { searchParams: PageProps<"/calendar">
           <Segment href={href({ ...state, view: "month" })} active={view === "month"}>Month</Segment>
           <Segment href={href({ ...state, view: "year" })} active={view === "year"}>Year</Segment>
         </Segmented>
-        <Segmented>
-          <Segment href={href({ ...state, mode: "net" })} active={mode === "net"}>Net</Segment>
-          <Segment href={href({ ...state, mode: "gross" })} active={mode === "gross"}>Gross</Segment>
-        </Segmented>
+        <FilterBar filters={filters} accounts={accounts} showRange={false} />
       </PageHeader>
 
       <div className="mx-auto grid max-w-[1400px] gap-4 p-6 xl:grid-cols-[minmax(0,1fr)_280px]">

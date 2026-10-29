@@ -1,7 +1,9 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { CalendarDays, Check, ChevronLeft, ChevronRight, X } from "lucide-react";
-import { PageHeader, Segment, Segmented } from "@/components/shell/page-header";
+import { PageHeader } from "@/components/shell/page-header";
+import { FilterBar } from "@/components/shell/filter-bar";
+import { readFilters } from "@/lib/filters-server";
 import { Kpi, Panel } from "@/components/dashboard/card";
 import { IntradayChart } from "@/components/daily/intraday-chart";
 import { JournalEditor } from "@/components/daily/journal-editor";
@@ -10,6 +12,7 @@ import { getScreenshots } from "@/lib/screenshots/queries";
 import { cn } from "@/lib/utils";
 import { monthKey, parseDay } from "@/lib/dates";
 import {
+  getAccounts,
   getAdjacentTradingDay,
   getClosedTradesInDays,
   getJournalEntry,
@@ -29,21 +32,21 @@ export default function DailyPage({ searchParams }: PageProps<"/daily">) {
   );
 }
 
-const dayHref = (key: string, mode: PnlMode) =>
-  `/daily?date=${key}${mode === "gross" ? "&mode=gross" : ""}`;
+const dayHref = (key: string) => `/daily?date=${key}`;
 
 async function Daily({ searchParams }: { searchParams: PageProps<"/daily">["searchParams"] }) {
   const sp = await searchParams;
-  const mode: PnlMode = sp.mode === "gross" ? "gross" : "net";
+  const filters = await readFilters(sp);
+  const { mode } = filters;
   const requested = typeof sp.date === "string" && parseDay(sp.date) ? sp.date : null;
-  const [lastDay, { timezone }] = await Promise.all([getLastTradeDay(), getSettings()]);
+  const [lastDay, { timezone }, accounts] = await Promise.all([getLastTradeDay(filters), getSettings(), getAccounts()]);
   const key = requested ?? lastDay ?? dayKey(new Date(), timezone);
   const day = parseDay(key)!; // civil date, for labels only
 
   const [trades, prev, next, entry, shots] = await Promise.all([
-    getClosedTradesInDays(key, addDaysKey(key, 1)),
-    getAdjacentTradingDay(key, "prev"),
-    getAdjacentTradingDay(key, "next"),
+    getClosedTradesInDays(key, addDaysKey(key, 1), filters),
+    getAdjacentTradingDay(key, "prev", filters),
+    getAdjacentTradingDay(key, "next", filters),
     getJournalEntry(key),
     getScreenshots({ day: key }),
   ]);
@@ -54,11 +57,11 @@ async function Daily({ searchParams }: { searchParams: PageProps<"/daily">["sear
     <>
       <PageHeader title="Daily">
         <div className="flex items-center gap-1">
-          <DayNav href={prev ? dayHref(prev, mode) : null} label="Previous trading day">
+          <DayNav href={prev ? dayHref(prev) : null} label="Previous trading day">
             <ChevronLeft className="size-4" strokeWidth={1.5} />
           </DayNav>
           <span className="w-40 text-center text-[13px] text-foreground">{title}</span>
-          <DayNav href={next ? dayHref(next, mode) : null} label="Next trading day">
+          <DayNav href={next ? dayHref(next) : null} label="Next trading day">
             <ChevronRight className="size-4" strokeWidth={1.5} />
           </DayNav>
           <Link
@@ -69,10 +72,7 @@ async function Daily({ searchParams }: { searchParams: PageProps<"/daily">["sear
             <CalendarDays className="size-4" strokeWidth={1.5} />
           </Link>
         </div>
-        <Segmented>
-          <Segment href={`/daily?date=${key}`} active={mode === "net"}>Net</Segment>
-          <Segment href={`/daily?date=${key}&mode=gross`} active={mode === "gross"}>Gross</Segment>
-        </Segmented>
+        <FilterBar filters={filters} accounts={accounts} showRange={false} />
       </PageHeader>
 
       <div className="mx-auto grid max-w-[1400px] gap-4 p-6 xl:grid-cols-[minmax(0,1fr)_360px]">

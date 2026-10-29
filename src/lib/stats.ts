@@ -1,4 +1,5 @@
 /** Pure metric helpers. Inputs are closed trades; no DB access here. */
+import { addDaysKey } from "./tz";
 
 export type StatTrade = {
   id: number;
@@ -72,6 +73,45 @@ export function dailySeries(trades: StatTrade[], mode: PnlMode) {
     .map(([day, v]) => {
       equity += v.pnl;
       return { day, pnl: round(v.pnl), trades: v.trades, equity: round(equity) };
+    });
+}
+
+/** Monday that starts the week containing `day` ("YYYY-MM-DD"). */
+export function weekStart(day: string) {
+  const [y, m, d] = day.split("-").map(Number);
+  const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  return addDaysKey(day, -((dow + 6) % 7));
+}
+
+const labelOf = (key: string, opts: Intl.DateTimeFormatOptions) => {
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d || 1)).toLocaleDateString("en-US", { timeZone: "UTC", ...opts });
+};
+
+/** P&L per day, week (Mon–Sun) or month, sorted, with running equity and a display label. */
+export function groupedSeries(trades: StatTrade[], mode: PnlMode, grouping: "day" | "week" | "month") {
+  const keyOf = (day: string) =>
+    grouping === "week" ? weekStart(day) : grouping === "month" ? day.slice(0, 7) : day;
+  const byKey = new Map<string, { pnl: number; trades: number }>();
+  for (const t of trades) {
+    const key = keyOf(t.day);
+    const entry = byKey.get(key) ?? { pnl: 0, trades: 0 };
+    entry.pnl += pnlOf(t, mode);
+    entry.trades += 1;
+    byKey.set(key, entry);
+  }
+  let equity = 0;
+  return [...byKey.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, v]) => {
+      equity += v.pnl;
+      const label =
+        grouping === "month"
+          ? labelOf(key, { month: "short", year: "numeric" })
+          : grouping === "week"
+            ? `Wk ${labelOf(key, { month: "short", day: "numeric" })}`
+            : labelOf(key, { month: "short", day: "numeric" });
+      return { key, label, pnl: round(v.pnl), trades: v.trades, equity: round(equity) };
     });
 }
 

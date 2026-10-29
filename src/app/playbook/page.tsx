@@ -7,9 +7,11 @@ import { db, schema } from "@/db";
 import { PageHeader } from "@/components/shell/page-header";
 import { Kpi, Panel } from "@/components/dashboard/card";
 import { PlaybookEditor } from "@/components/playbook/playbook-editor";
+import { FilterBar } from "@/components/shell/filter-bar";
+import { readFilters } from "@/lib/filters-server";
 import { cn } from "@/lib/utils";
 import { createPlaybook } from "@/lib/playbook/actions";
-import { getAllTags, getClosedTradesBetween, isMistakeGroup } from "@/lib/queries";
+import { getAccounts, getAllTags, getClosedTradesBetween, isMistakeGroup } from "@/lib/queries";
 import { summarize } from "@/lib/stats";
 import { getSettings } from "@/lib/settings/queries";
 import { addDaysKey, dayKey, startOfDay } from "@/lib/tz";
@@ -108,23 +110,37 @@ async function Playbook({ searchParams }: { searchParams: PageProps<"/playbook">
 
 /** All-time and last-30-day results for trades tagged with this setup. */
 async function SetupStats({ tag }: { tag: string }) {
-  const [rows, { timezone }] = await Promise.all([getClosedTradesBetween(null, null), getSettings()]);
+  const filters = await readFilters();
+  const [rows, { timezone }, accounts] = await Promise.all([
+    getClosedTradesBetween(null, null, filters),
+    getSettings(),
+    getAccounts(),
+  ]);
+  const bar = (
+    <div className="flex justify-end">
+      <FilterBar filters={filters} accounts={accounts} showRange={false} />
+    </div>
+  );
   const all = rows.filter((t) => t.tags.includes(tag));
   const since = startOfDay(addDaysKey(dayKey(new Date(), timezone), -30), timezone);
   const recent = all.filter((t) => t.closedAt >= since);
-  const s = summarize(all, "net");
-  const r = summarize(recent, "net");
+  const s = summarize(all, filters.mode);
+  const r = summarize(recent, filters.mode);
 
   if (!all.length) {
     return (
-      <p className="rounded-[10px] border border-border bg-card px-4 py-3 text-[13px] text-faint">
-        No trades tagged “{tag}” yet. Tag trades on the Trades page to see how this setup performs.
-      </p>
+      <div className="flex flex-col gap-2">
+        {bar}
+        <p className="rounded-[10px] border border-border bg-card px-4 py-3 text-[13px] text-faint">
+          No trades tagged “{tag}” for these filters yet. Tag trades on the Trades page to see how this setup performs.
+        </p>
+      </div>
     );
   }
 
   return (
     <div className="flex flex-col gap-2">
+      {bar}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Kpi label="Net P&L" value={formatPnl(s.total)} tone={pnlTone(s.total)} sub={`${s.count} trades, all time`} />
         <Kpi label="Win rate" value={formatPct(s.winRate, 0)} sub={`${s.wins}W · ${s.losses}L`} />

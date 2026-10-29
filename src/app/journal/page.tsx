@@ -5,13 +5,15 @@ import { desc } from "drizzle-orm";
 import { Check, PenLine, X } from "lucide-react";
 import { db, schema } from "@/db";
 import { PageHeader } from "@/components/shell/page-header";
+import { FilterBar } from "@/components/shell/filter-bar";
+import { readFilters } from "@/lib/filters-server";
 import { Kpi, Panel } from "@/components/dashboard/card";
 import { JournalSearch } from "@/components/journal/journal-search";
 import { cn } from "@/lib/utils";
 import { parseDay } from "@/lib/dates";
 import { getSettings } from "@/lib/settings/queries";
 import { dayKey } from "@/lib/tz";
-import { getClosedTradesBetween } from "@/lib/queries";
+import { getAccounts, getClosedTradesBetween } from "@/lib/queries";
 import { dailySeries } from "@/lib/stats";
 import { formatPct, formatPnl, pnlTone } from "@/lib/format";
 
@@ -27,13 +29,15 @@ async function Journal({ searchParams }: { searchParams: PageProps<"/journal">["
   const sp = await searchParams;
   const q = typeof sp.q === "string" ? sp.q.trim().slice(0, 100) : "";
   await connection();
+  const filters = await readFilters(sp);
 
-  const [entries, trades, { timezone }] = await Promise.all([
+  const [entries, trades, { timezone }, accounts] = await Promise.all([
     db.select().from(schema.journalEntries).orderBy(desc(schema.journalEntries.day)),
-    getClosedTradesBetween(null, null),
+    getClosedTradesBetween(null, null, filters),
     getSettings(),
+    getAccounts(),
   ]);
-  const days = new Map(dailySeries(trades, "net").map((d) => [d.day, d]));
+  const days = new Map(dailySeries(trades, filters.mode).map((d) => [d.day, d]));
   const written = entries.filter((e) => e.content.trim() || e.followedRules !== null);
   const shown = q
     ? written.filter((e) => e.content.toLowerCase().includes(q.toLowerCase()))
@@ -53,6 +57,7 @@ async function Journal({ searchParams }: { searchParams: PageProps<"/journal">["
   return (
     <>
       <PageHeader title="Journal">
+        <FilterBar filters={filters} accounts={accounts} showRange={false} />
         <Link
           href={`/daily?date=${today}`}
           className="inline-flex h-7 items-center gap-1.5 rounded-md bg-primary px-2.5 text-[12px] font-medium text-primary-foreground transition-opacity hover:opacity-90"

@@ -100,7 +100,7 @@ exports and erase).
 Second round, one pull request per topic:
 
 - [x] Trading timezone setting: days, hours and CSV times follow it
-- [ ] Shared filters: account, asset class, range, net/gross, grouping
+- [x] Shared filters: account, asset class, range, net/gross, grouping
 - [ ] Manual trades and open positions
 - [ ] Risk: per-account 1R and R-multiples
 - [ ] Dashboard tabs: Overview, Time, Activity, Setups, Instruments
