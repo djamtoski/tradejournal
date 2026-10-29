@@ -1,0 +1,5 @@
+Date,Time,Symbol,Side,Quantity,Price,Fees,Asset class,Multiplier
+2026-10-05,09:31:04,AAPL,Buy,100,228.15,1.00,stock,1
+2026-10-05,09:44:51,AAPL,Sell,100,229.40,1.00,stock,1
+2026-10-05,10:02:17,NQ,Sell,2,20412.25,9.00,future,20
+2026-10-05,10:09:40,NQ,Buy,2,20398.50,9.00,future,20

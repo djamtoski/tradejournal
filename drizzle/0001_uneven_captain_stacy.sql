@@ -1,0 +1,1 @@
+ALTER TABLE `executions` ADD `multiplier` real DEFAULT 1 NOT NULL;

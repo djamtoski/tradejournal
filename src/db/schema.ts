@@ -95,6 +95,7 @@ export const executions = sqliteTable(
     quantity: real("quantity").notNull(),
     price: real("price").notNull(),
     fees: real("fees").notNull().default(0),
+    multiplier: real("multiplier").notNull().default(1),
     executedAt: integer("executed_at", { mode: "timestamp_ms" }).notNull(),
     /** Stable hash of the raw fill, used to skip duplicates on re-import. */
     fingerprint: text("fingerprint").notNull(),
