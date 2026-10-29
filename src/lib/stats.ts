@@ -9,6 +9,7 @@ export type StatTrade = {
   grossPnl: number;
   netPnl: number;
   tags: string[];
+  mistakes?: string[];
 };
 
 export type PnlMode = "net" | "gross";
@@ -123,6 +124,9 @@ export const bySymbol = (trades: StatTrade[], mode: PnlMode) =>
 
 export const byTag = (trades: StatTrade[], mode: PnlMode) =>
   groupPnl(trades, mode, (t) => t.tags).sort((a, b) => b.pnl - a.pnl);
+
+export const byMistake = (trades: StatTrade[], mode: PnlMode) =>
+  groupPnl(trades, mode, (t) => t.mistakes ?? []).sort((a, b) => a.pnl - b.pnl);
 
 export const bySide = (trades: StatTrade[], mode: PnlMode) =>
   groupPnl(trades, mode, (t) => [t.side]);

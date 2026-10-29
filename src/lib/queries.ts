@@ -12,6 +12,8 @@ export type JournalTrade = StatTrade & {
   fees: number;
   followedRules: boolean | null;
   note: string | null;
+  /** Tags from the "Mistake" group; `tags` holds the rest (setups etc). */
+  mistakes: string[];
 };
 
 /** Closed trades in range, with tag names attached. */
@@ -55,19 +57,66 @@ export async function getClosedTradesBetween(
   });
 
   const tagRows = await db
-    .select({ tradeId: schema.tradeTags.tradeId, name: schema.tags.name })
+    .select({
+      tradeId: schema.tradeTags.tradeId,
+      name: schema.tags.name,
+      group: schema.tagGroups.name,
+    })
     .from(schema.tradeTags)
-    .innerJoin(schema.tags, eq(schema.tags.id, schema.tradeTags.tagId));
-  const tagsByTrade = new Map<number, string[]>();
-  for (const { tradeId, name } of tagRows) {
-    tagsByTrade.set(tradeId, [...(tagsByTrade.get(tradeId) ?? []), name]);
+    .innerJoin(schema.tags, eq(schema.tags.id, schema.tradeTags.tagId))
+    .leftJoin(schema.tagGroups, eq(schema.tagGroups.id, schema.tags.groupId));
+  const tagsByTrade = new Map<number, { tags: string[]; mistakes: string[] }>();
+  for (const { tradeId, name, group } of tagRows) {
+    const entry = tagsByTrade.get(tradeId) ?? { tags: [], mistakes: [] };
+    (isMistakeGroup(group) ? entry.mistakes : entry.tags).push(name);
+    tagsByTrade.set(tradeId, entry);
   }
 
   return rows.map((r) => ({
     ...r,
     closedAt: r.closedAt!,
-    tags: tagsByTrade.get(r.id) ?? [],
+    tags: tagsByTrade.get(r.id)?.tags ?? [],
+    mistakes: tagsByTrade.get(r.id)?.mistakes ?? [],
   }));
+}
+
+/** Tags in a group named "Mistake(s)" are tracked separately from setups. */
+export const isMistakeGroup = (group: string | null) => !!group && /^mistakes?$/i.test(group.trim());
+
+export async function getAllTags() {
+  return db
+    .select({
+      id: schema.tags.id,
+      name: schema.tags.name,
+      groupId: schema.tags.groupId,
+      group: schema.tagGroups.name,
+    })
+    .from(schema.tags)
+    .leftJoin(schema.tagGroups, eq(schema.tagGroups.id, schema.tags.groupId))
+    .orderBy(asc(schema.tagGroups.name), asc(schema.tags.name));
+}
+
+export async function getTagGroups() {
+  return db.select().from(schema.tagGroups).orderBy(asc(schema.tagGroups.name));
+}
+
+/** One trade with its fills and tag ids, for the detail panel. */
+export async function getTradeDetail(id: number) {
+  await connection();
+  const trade = await db.query.trades.findFirst({ where: eq(schema.trades.id, id) });
+  if (!trade) return null;
+  const [fills, tagLinks] = await Promise.all([
+    db
+      .select()
+      .from(schema.executions)
+      .where(eq(schema.executions.tradeId, id))
+      .orderBy(asc(schema.executions.executedAt)),
+    db
+      .select({ tagId: schema.tradeTags.tagId })
+      .from(schema.tradeTags)
+      .where(eq(schema.tradeTags.tradeId, id)),
+  ]);
+  return { trade, fills, tagIds: tagLinks.map((t) => t.tagId) };
 }
 
 /** Most recent close time, used to pick a default day or month. */

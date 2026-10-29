@@ -8,6 +8,7 @@ import { parseFilters, type Filters } from "@/lib/filters";
 import { getClosedTrades } from "@/lib/queries";
 import {
   byHour,
+  byMistake,
   bySide,
   bySymbol,
   byTag,
@@ -52,6 +53,7 @@ function Overview({
   const sides = bySide(trades, mode);
   const long = sides.find((r) => r.key === "long");
   const short = sides.find((r) => r.key === "short");
+  const mistakes = byMistake(trades, mode);
 
   return (
     <div className="mx-auto flex max-w-[1400px] flex-col gap-4 p-6">
@@ -113,17 +115,28 @@ function Overview({
         <Panel title="By setup">
           <Breakdown rows={byTag(trades, mode)} />
         </Panel>
+        <Panel title="Cost of mistakes">
+          {mistakes.length ? (
+            <Breakdown rows={mistakes} />
+          ) : (
+            <p className="px-4 pb-4 pt-1 text-[13px] text-faint">
+              Tag trades with a mistake to see what each one costs you.
+            </p>
+          )}
+        </Panel>
         <Panel title="By symbol">
           <Breakdown rows={bySymbol(trades, mode)} />
         </Panel>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
         <Panel title="By weekday">
           <Breakdown rows={byWeekday(trades, mode)} />
         </Panel>
+        <Panel title="By entry hour">
+          <Breakdown rows={byHour(trades, mode)} />
+        </Panel>
       </div>
-
-      <Panel title="By entry hour">
-        <Breakdown rows={byHour(trades, mode)} />
-      </Panel>
     </div>
   );
 }
