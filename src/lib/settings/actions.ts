@@ -142,3 +142,14 @@ export async function setTimezone(tz: string): Promise<Result> {
     .onConflictDoUpdate({ target: schema.settings.key, set: { value: tz } });
   return done();
 }
+
+/** Dollar value of 1R for trades in this account without a stop. Blank clears it. */
+export async function setAccountRisk(id: number, raw: string): Promise<Result> {
+  const text = raw.replace(/[$,\s]/g, "");
+  const value = text === "" ? null : Number(text);
+  if (value !== null && (!Number.isFinite(value) || value <= 0 || value > 10_000_000)) {
+    return { ok: false, error: "Enter an amount above 0" };
+  }
+  await db.update(schema.accounts).set({ defaultRisk: value }).where(eq(schema.accounts.id, id));
+  return done();
+}

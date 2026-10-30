@@ -102,7 +102,7 @@ Second round, one pull request per topic:
 - [x] Trading timezone setting: days, hours and CSV times follow it
 - [x] Shared filters: account, asset class, range, net/gross, grouping
 - [x] Manual trades and open positions
-- [ ] Risk: per-account 1R and R-multiples
+- [x] Risk: per-account 1R and R-multiples
 - [ ] Dashboard tabs: Overview, Time, Activity, Setups, Instruments
 - [ ] Goals and streaks
 - [ ] Tradovate import preset and watched inbox folder

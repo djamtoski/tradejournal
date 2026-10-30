@@ -50,12 +50,13 @@ async function Settings() {
         <TimezoneSelect value={settings.timezone} zones={Intl.supportedValuesOf("timeZone")} />
       </Section>
 
-      <Section title="Accounts" description="Rename accounts or delete one with all of its trades and imports.">
+      <Section title="Accounts" description="Rename accounts, set 1R (the dollar risk used for trades without a stop), or delete an account with its trades and imports.">
         <AccountsSection
           accounts={accounts.map((a) => ({
             id: a.id,
             name: a.name,
             broker: a.broker,
+            defaultRisk: a.defaultRisk,
             trades: trades.get(a.id) ?? 0,
             imports: imports.get(a.id) ?? 0,
           }))}

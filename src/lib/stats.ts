@@ -16,12 +16,36 @@ export type StatTrade = {
   /** Trading-timezone hour (0–23) and weekday (0 = Sunday) the trade opened. */
   openHour: number;
   openWeekday: number;
+  /** Dollars at risk (1R) for this trade, or null when neither a stop nor an account default is set. */
+  risk?: number | null;
 };
 
 export type PnlMode = "net" | "gross";
 
 export const pnlOf = (t: StatTrade, mode: PnlMode) =>
   mode === "net" ? t.netPnl : t.grossPnl;
+
+/**
+ * 1R in dollars: the planned loss to the stop when one is set, otherwise the
+ * account's default risk per trade. Null when neither is known.
+ */
+export function riskOf(t: {
+  entryPrice: number;
+  stopPrice: number | null;
+  quantity: number;
+  multiplier: number;
+  defaultRisk: number | null;
+}): number | null {
+  if (t.stopPrice !== null && Number.isFinite(t.stopPrice)) {
+    const risk = Math.abs(t.entryPrice - t.stopPrice) * t.quantity * t.multiplier;
+    if (risk > 0) return round(risk);
+  }
+  return t.defaultRisk && t.defaultRisk > 0 ? t.defaultRisk : null;
+}
+
+/** Result in multiples of risk, e.g. +2.4R. Null when the trade has no risk. */
+export const rOf = (t: StatTrade, mode: PnlMode) =>
+  t.risk && t.risk > 0 ? pnlOf(t, mode) / t.risk : null;
 
 export function summarize(trades: StatTrade[], mode: PnlMode) {
   const pnls = trades.map((t) => pnlOf(t, mode));
@@ -33,8 +57,14 @@ export function summarize(trades: StatTrade[], mode: PnlMode) {
 
   const days = dailySeries(trades, mode);
   const greenDays = days.filter((d) => d.pnl > 0).length;
+  const rs = trades.map((t) => rOf(t, mode)).filter((r): r is number => r !== null);
+  const totalR = rs.reduce((a, b) => a + b, 0);
 
   return {
+    /** How many trades have a known risk, and their R totals. */
+    rCount: rs.length,
+    totalR: round(totalR),
+    avgR: rs.length ? round(totalR / rs.length) : null,
     total,
     count: trades.length,
     winRate: trades.length ? wins.length / trades.length : 0,
@@ -113,6 +143,20 @@ export function groupedSeries(trades: StatTrade[], mode: PnlMode, grouping: "day
             : labelOf(key, { month: "short", day: "numeric" });
       return { key, label, pnl: round(v.pnl), trades: v.trades, equity: round(equity) };
     });
+}
+
+export const rBins = ["< −2R", "−2 to −1R", "−1 to 0R", "0 to 1R", "1 to 2R", "2 to 3R", "> 3R"] as const;
+
+/** How many trades fell into each R bucket (trades without risk are skipped). */
+export function rDistribution(trades: StatTrade[], mode: PnlMode) {
+  const counts = rBins.map((label) => ({ label, trades: 0 }));
+  for (const t of trades) {
+    const r = rOf(t, mode);
+    if (r === null) continue;
+    const i = r < -2 ? 0 : r < -1 ? 1 : r < 0 ? 2 : r < 1 ? 3 : r < 2 ? 4 : r < 3 ? 5 : 6;
+    counts[i].trades += 1;
+  }
+  return counts;
 }
 
 function groupPnl<K extends string>(

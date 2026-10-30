@@ -29,6 +29,8 @@ export const accounts = sqliteTable("accounts", {
   name: text("name").notNull(),
   broker: text("broker"),
   currency: text("currency").notNull().default("USD"),
+  /** Dollar risk of one R for trades without a stop. Null = only stopped trades get an R. */
+  defaultRisk: real("default_risk"),
   createdAt: createdAt(),
 });
 

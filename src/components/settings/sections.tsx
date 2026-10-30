@@ -10,6 +10,7 @@ import {
   eraseAllData,
   renameAccount,
   renameTagGroup,
+  setAccountRisk,
   updateTag,
 } from "@/lib/settings/actions";
 import { AddInline, ConfirmDelete, InlineEdit, inputCls } from "./controls";
@@ -17,7 +18,7 @@ import { cn } from "@/lib/utils";
 
 const plural = (n: number, word: string) => `${n.toLocaleString()} ${word}${n === 1 ? "" : "s"}`;
 
-type Account = { id: number; name: string; broker: string | null; trades: number; imports: number };
+type Account = { id: number; name: string; broker: string | null; trades: number; imports: number; defaultRisk: number | null };
 
 export function AccountsSection({ accounts }: { accounts: Account[] }) {
   if (!accounts.length) {
@@ -39,14 +40,60 @@ export function AccountsSection({ accounts }: { accounts: Account[] }) {
               {plural(a.trades, "trade")} · {plural(a.imports, "import")}
             </span>
           </div>
-          <ConfirmDelete
+          <div className="flex items-center gap-3">
+            <RiskInput accountId={a.id} accountName={a.name} initial={a.defaultRisk} />
+            <ConfirmDelete
             label={a.name}
             warning={a.trades ? `Delete ${a.name} and its ${plural(a.trades, "trade")}?` : `Delete ${a.name}?`}
             onConfirm={() => deleteAccount(a.id)}
-          />
+            />
+          </div>
         </li>
       ))}
     </ul>
+  );
+}
+
+/** "1R = $___" for trades in this account that have no stop. Saves on blur or Enter. */
+function RiskInput({ accountId, accountName, initial }: { accountId: number; accountName: string; initial: number | null }) {
+  const [value, setValue] = useState(initial === null ? "" : String(initial));
+  const [saved, setSaved] = useState(value);
+  const [status, setStatus] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+
+  const commit = (raw: string) => {
+    if (raw.trim() === saved.trim()) return;
+    start(async () => {
+      const res = await setAccountRisk(accountId, raw);
+      if (!res.ok) return setStatus(res.error);
+      setSaved(raw);
+      setStatus("Saved");
+    });
+  };
+
+  return (
+    <label className="flex items-center gap-2 text-[12px] text-muted-foreground" title="Used as 1R for trades without a stop">
+      1R
+      <span className="relative">
+        <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-faint">$</span>
+        <input
+          inputMode="decimal"
+          value={value}
+          placeholder="—"
+          aria-label={`Default risk per trade for ${accountName}`}
+          onChange={(e) => {
+            setValue(e.target.value);
+            setStatus(null);
+          }}
+          onBlur={(e) => commit(e.currentTarget.value)}
+          onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+          className={cn(inputCls, "num w-24 pl-5")}
+        />
+      </span>
+      <span className={cn("w-12 text-[11px]", status && status !== "Saved" ? "text-loss" : "text-faint")} aria-live="polite">
+        {pending ? "…" : status}
+      </span>
+    </label>
   );
 }
 

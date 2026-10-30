@@ -1,8 +1,8 @@
 import { ranges, type RangeId } from "@/lib/filters";
-import { pnlOf, type PnlMode } from "@/lib/stats";
+import { pnlOf, rOf, type PnlMode } from "@/lib/stats";
 import type { JournalTrade } from "@/lib/queries";
 
-export const sortKeys = ["date", "symbol", "pnl", "qty", "duration"] as const;
+export const sortKeys = ["date", "symbol", "pnl", "r", "qty", "duration"] as const;
 export type SortKey = (typeof sortKeys)[number];
 
 /** Trades-page filters kept in the URL. `mode` comes from the shared filters, not the URL. */
@@ -81,6 +81,8 @@ export function applyTradeFilters(trades: JournalTrade[], f: TradeFilters) {
     switch (f.sort) {
       case "symbol": return t.symbol;
       case "pnl": return pnlOf(t, f.mode);
+      // Trades without risk sort after every real R.
+      case "r": return rOf(t, f.mode) ?? (f.dir === "asc" ? Infinity : -Infinity);
       case "qty": return t.quantity;
       case "duration": return t.closedAt.getTime() - t.openedAt.getTime();
       default: return t.openedAt.getTime();

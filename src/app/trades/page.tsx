@@ -18,8 +18,8 @@ import { dayKey, formatDateTime, formatTime } from "@/lib/tz";
 import { cn } from "@/lib/utils";
 import { getAccounts, getAllTags, getClosedTrades, getOpenTrades, getTagGroups, getTradeDetail } from "@/lib/queries";
 import { applyTradeFilters, parseTradeFilters, tradesHref, type SortKey, type TradeFilters } from "@/lib/trades/filters";
-import { pnlOf, summarize } from "@/lib/stats";
-import { formatPct, formatPnl, pnlTone } from "@/lib/format";
+import { pnlOf, rOf, summarize } from "@/lib/stats";
+import { formatPct, formatPnl, formatR, pnlTone } from "@/lib/format";
 
 const PAGE_SIZE = 100;
 
@@ -112,6 +112,7 @@ const columns: { key: SortKey | null; label: string; align?: "right" }[] = [
   { key: null, label: "Entry", align: "right" },
   { key: null, label: "Exit", align: "right" },
   { key: "pnl", label: "P&L", align: "right" },
+  { key: "r", label: "R", align: "right" },
   { key: null, label: "Tags" },
   { key: null, label: "Rules" },
 ];
@@ -138,7 +139,7 @@ function TradeTable({
 }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[900px] text-[13px]">
+      <table className="w-full min-w-[960px] text-[13px]">
         <thead className="text-[12px] text-faint">
           <tr className="border-b border-border">
             {columns.map((c, i) => {
@@ -200,6 +201,7 @@ function TradeTable({
                 <td className="num px-2 text-right text-muted-foreground">{price(t.entryPrice)}</td>
                 <td className="num px-2 text-right text-muted-foreground">{price(t.exitPrice)}</td>
                 <td className={cn("num px-2 text-right", pnlTone(pnl))}>{formatPnl(pnl, true)}</td>
+                <td className={cn("num px-2 text-right", t.risk ? pnlTone(pnl) : "text-faint")}>{formatR(rOf(t, f.mode))}</td>
                 <td className="max-w-[16rem] px-2">
                   <div className="flex flex-wrap gap-1">
                     {t.tags.map((tag) => (
@@ -332,6 +334,9 @@ async function TradeDetail({
         entryPrice={t.entryPrice}
         quantity={t.quantity}
         multiplier={t.multiplier}
+        netPnl={t.netPnl}
+        closed={t.closedAt !== null}
+        defaultRisk={detail.defaultRisk}
         allTags={allTags}
         groups={groups.map((g) => ({ id: g.id, name: g.name }))}
         initial={{
