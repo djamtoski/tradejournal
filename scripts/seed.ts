@@ -52,6 +52,7 @@ const mistakeTags = ["Chased entry", "Moved stop", "Oversized"];
 
 async function main() {
   await db.delete(schema.playbooks);
+  await db.delete(schema.goals);
   await db.delete(schema.screenshots);
   await rm("data/screenshots", { recursive: true, force: true });
   await db.delete(schema.tradeTags);
@@ -200,6 +201,15 @@ Target: high of day, then trail.`,
 4. Size down after a red day.
 5. No trades 11:30 to 13:30 unless it's an A setup.`,
     },
+  ]);
+
+  // Mirrors the "Daily rules" playbook, so a few seeded days show as breaches.
+  await db.insert(schema.goals).values([
+    { kind: "max_trades_per_day", value: 4 },
+    { kind: "max_consecutive_losses", value: 2 },
+    { kind: "max_daily_loss", value: 2500, accountId: futuresAccount.id },
+    { kind: "profit_target", period: "day", value: 750 },
+    { kind: "profit_target", period: "week", value: 3000 },
   ]);
 
   console.log(`Seeded ${tradeCount} trades.`);

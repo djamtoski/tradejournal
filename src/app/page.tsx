@@ -5,7 +5,10 @@ import { FilterBar } from "@/components/shell/filter-bar";
 import { OverviewTab } from "@/components/dashboard/tabs/overview";
 import { ActivityTab, InstrumentsTab, SetupsTab, TimeTab } from "@/components/dashboard/tabs/breakdown-tabs";
 import { dashboardTabs, parseTab, type DashboardTab } from "@/components/dashboard/tabs/types";
+import { StreakStrip } from "@/components/goals/streaks";
 import { readFilters } from "@/lib/filters-server";
+import { getGoalHistory } from "@/lib/goals/queries";
+import { isLimit } from "@/lib/goals/evaluate";
 import { getAccounts, getClosedTrades, getLastTradeDay } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 
@@ -29,10 +32,11 @@ async function Dashboard({ searchParams }: { searchParams: PageProps<"/">["searc
   const sp = await searchParams;
   const tab = parseTab(sp.tab);
   const filters = await readFilters(sp);
-  const [trades, accounts, anyTrade] = await Promise.all([
+  const [trades, accounts, anyTrade, history] = await Promise.all([
     getClosedTrades(filters.range, filters),
     getAccounts(),
     getLastTradeDay(),
+    tab === "overview" ? getGoalHistory() : null,
   ]);
   const View = tabViews[tab];
 
@@ -43,6 +47,9 @@ async function Dashboard({ searchParams }: { searchParams: PageProps<"/">["searc
       </PageHeader>
       <div className="mx-auto flex max-w-[1400px] flex-col gap-4 p-6">
         <TabNav active={tab} sp={sp} />
+        {history && history.days.length > 0 && trades.length > 0 && (
+          <StreakStrip streaks={history.streaks} hasLimits={history.goals.some((g) => g.active && isLimit(g))} />
+        )}
         {trades.length ? <View trades={trades} filters={filters} /> : anyTrade ? <NoMatches /> : <EmptyState />}
       </div>
     </>
