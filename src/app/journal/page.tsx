@@ -68,7 +68,7 @@ async function Journal({ searchParams }: { searchParams: PageProps<"/journal">["
 
       <div className="mx-auto flex max-w-[1100px] flex-col gap-4 p-4 md:p-6">
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <Kpi label="Entries" value={written.length.toLocaleString()} sub={`${formatPct(coverage, 0)} of trading days`} />
+          <Kpi label="Entries" value={written.length.toLocaleString("en-US")} sub={`${formatPct(coverage, 0)} of trading days`} />
           <Kpi
             label="Followed rules"
             value={rated.length ? formatPct(followed.length / rated.length, 0) : "—"}

@@ -90,7 +90,7 @@ async function Settings() {
       <Section title="Your data" description="Everything is stored in data/journal.db on this computer. Nothing is sent anywhere.">
         <div className="flex flex-col gap-3 px-4 pb-4 pt-1">
           <p className="num text-[12px] text-faint">
-            {tradeTotal.toLocaleString()} trades · {journalTotal} journal entries · {playbookTotal} playbook entries
+            {tradeTotal.toLocaleString("en-US")} trades · {journalTotal} journal entries · {playbookTotal} playbook entries
           </p>
           <div className="flex flex-wrap gap-2">
             <DownloadLink href="/api/export/trades">Export trades (CSV)</DownloadLink>

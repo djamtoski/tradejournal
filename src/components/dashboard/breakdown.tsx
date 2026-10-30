@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import { formatPct, formatPnl, formatR, pnlTone } from "@/lib/format";
 
-type Row = { key: string; pnl: number; trades: number; winRate: number };
+type Row = { key: string; pnl: number; trades: number; winRate: number | null };
 
 /** Diverging horizontal bars: losses grow left, profits grow right of a center line. */
 export function Breakdown({ rows }: { rows: Row[] }) {
@@ -29,7 +29,7 @@ export function Breakdown({ rows }: { rows: Row[] }) {
             <span className="flex flex-col items-end leading-tight">
               <span className={cn("num text-[13px]", pnlTone(r.pnl))}>{formatPnl(r.pnl)}</span>
               <span className="num text-[11px] text-faint">
-                {r.trades} · {formatPct(r.winRate, 0)}
+                {r.trades} · {r.winRate === null ? "—" : formatPct(r.winRate, 0)}
               </span>
             </span>
           </div>
@@ -39,7 +39,7 @@ export function Breakdown({ rows }: { rows: Row[] }) {
   );
 }
 
-type RRow = { key: string; trades: number; avgR: number; totalR: number; winRate: number };
+type RRow = { key: string; trades: number; avgR: number; totalR: number; winRate: number | null };
 
 /** Same diverging bars as Breakdown, scaled by average R instead of dollars. */
 export function RBreakdown({ rows }: { rows: RRow[] }) {

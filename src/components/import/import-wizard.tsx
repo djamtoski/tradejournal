@@ -135,6 +135,7 @@ export function ImportWizard({ accounts, timezone }: { accounts: Account[]; time
                   <option value="future">Future</option>
                   <option value="forex">Forex</option>
                   <option value="option">Option</option>
+                  <option value="cfd">CFD</option>
                 </select>
               </Field>
               <Field label="Multiplier">
@@ -177,7 +178,7 @@ export function ImportWizard({ accounts, timezone }: { accounts: Account[]; time
           <div className="rounded-[10px] border border-border bg-card">
             <div className="flex items-center justify-between border-b border-border px-4 py-3">
               <h2 className="font-sans text-[13px] font-medium tracking-normal">Match your columns</h2>
-              <span className="num text-[12px] text-faint">{rows.length.toLocaleString()} rows · {headers.length} columns</span>
+              <span className="num text-[12px] text-faint">{rows.length.toLocaleString("en-US")} rows · {headers.length} columns</span>
             </div>
             <div className="divide-y divide-border">
               {fields.map((f) => (
@@ -267,7 +268,7 @@ export function ImportWizard({ accounts, timezone }: { accounts: Account[]; time
   );
 }
 
-const plural = (n: number, word: string) => `${n.toLocaleString()} ${word}${n === 1 ? "" : "s"}`;
+const plural = (n: number, word: string) => `${n.toLocaleString("en-US")} ${word}${n === 1 ? "" : "s"}`;
 
 const inputCls =
   "h-8 w-full rounded-md border border-input bg-muted px-2.5 text-[13px] text-foreground outline-none transition-colors placeholder:text-faint focus:border-primary";
@@ -440,7 +441,7 @@ function Preview({
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <MiniStat label="Fills" value={executions.length.toLocaleString()} />
+        <MiniStat label="Fills" value={executions.length.toLocaleString("en-US")} />
         <MiniStat label="Symbols" value={String(symbols)} />
         <MiniStat label="Date range" value={executions.length ? `${fmtDate(first)} – ${fmtDate(last)}` : "—"} small />
         <MiniStat label="Fees" value={formatMoney(fees)} />
@@ -448,7 +449,7 @@ function Preview({
 
       {skipped > 0 && (
         <p className="text-[12px] text-faint">
-          {skipped === 1 ? "1 order had no fill and is left out." : `${skipped.toLocaleString()} orders had no fill and are left out.`}
+          {skipped === 1 ? "1 order had no fill and is left out." : `${skipped.toLocaleString("en-US")} orders had no fill and are left out.`}
         </p>
       )}
 
@@ -457,7 +458,7 @@ function Preview({
           <p className="text-[13px] text-foreground">
             {errors.length === 1
               ? "1 row can't be imported and will be skipped"
-              : `${errors.length.toLocaleString()} rows can't be imported and will be skipped`}
+              : `${errors.length.toLocaleString("en-US")} rows can't be imported and will be skipped`}
           </p>
           <ul className="mt-2 flex flex-col gap-0.5 text-[12px] text-faint">
             {errors.slice(0, 6).map((e) => (
@@ -491,7 +492,7 @@ function Preview({
                   <td className={cn("px-4", e.action === "buy" ? "text-foreground" : "text-muted-foreground")}>
                     {e.action === "buy" ? "Buy" : "Sell"}
                   </td>
-                  <td className="num px-4 text-right">{e.quantity.toLocaleString()}</td>
+                  <td className="num px-4 text-right">{e.quantity.toLocaleString("en-US")}</td>
                   <td className="num px-4 text-right">{e.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })}</td>
                   <td className="num px-4 text-right text-muted-foreground">{e.fees.toFixed(2)}</td>
                 </tr>
@@ -501,7 +502,7 @@ function Preview({
         </div>
         {executions.length > 200 && (
           <p className="border-t border-border px-4 py-2 text-[12px] text-faint">
-            Showing the first 200 of {executions.length.toLocaleString()} fills
+            Showing the first 200 of {executions.length.toLocaleString("en-US")} fills
           </p>
         )}
       </div>
@@ -511,7 +512,7 @@ function Preview({
           <ArrowLeft className="size-3.5" strokeWidth={1.5} /> {backLabel}
         </button>
         <button type="button" onClick={onSubmit} disabled={!canSubmit || pending} className={primaryBtn}>
-          {pending ? "Importing…" : `Import ${executions.length.toLocaleString()} fills`}
+          {pending ? "Importing…" : `Import ${executions.length.toLocaleString("en-US")} fills`}
         </button>
       </div>
     </div>

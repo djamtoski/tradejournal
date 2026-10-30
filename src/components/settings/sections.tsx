@@ -16,7 +16,7 @@ import {
 import { AddInline, ConfirmDelete, InlineEdit, inputCls } from "./controls";
 import { cn } from "@/lib/utils";
 
-const plural = (n: number, word: string) => `${n.toLocaleString()} ${word}${n === 1 ? "" : "s"}`;
+const plural = (n: number, word: string) => `${n.toLocaleString("en-US")} ${word}${n === 1 ? "" : "s"}`;
 
 type Account = { id: number; name: string; broker: string | null; trades: number; imports: number; defaultRisk: number | null };
 

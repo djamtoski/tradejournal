@@ -7,6 +7,7 @@ import { formatPct, formatPnl, formatR, formatRatio } from "../format";
 import { goalLabel, isLimit, type Breach, type Goal, type Streak, type StreakId, streakKinds } from "../goals/evaluate";
 import { byHour, byTag, rOf, summarize, weekStart } from "../stats";
 import type { JournalTrade } from "../trades/load";
+import { exitReasonLabel } from "../trades/fields";
 import { addDaysKey, formatTime } from "../tz";
 
 export type ReviewPeriod = "day" | "week";
@@ -52,7 +53,7 @@ function summaryLines(trades: JournalTrade[]) {
   const fees = trades.reduce((t, x) => t + x.fees, 0);
   return [
     `- Net P&L ${formatPnl(s.total, true)} (gross ${formatPnl(gross, true)}, fees ${formatPnl(-fees, true)})`,
-    `- ${s.count} trades over ${s.tradingDays} trading ${s.tradingDays === 1 ? "day" : "days"}: ${s.wins} ${s.wins === 1 ? "win" : "wins"}, ${s.losses} ${s.losses === 1 ? "loss" : "losses"}, win rate ${formatPct(s.winRate, 0)}`,
+    `- ${s.count} trades over ${s.tradingDays} trading ${s.tradingDays === 1 ? "day" : "days"}: ${s.wins} ${s.wins === 1 ? "win" : "wins"}, ${s.losses} ${s.losses === 1 ? "loss" : "losses"}${s.breakevens ? `, ${s.breakevens} break-even` : ""}, win rate ${formatPct(s.winRate, 0)}`,
     `- Profit factor ${formatRatio(s.profitFactor)}, average win ${formatPnl(s.avgWin)}, average loss ${formatPnl(-s.avgLoss)}`,
     s.rCount
       ? `- R: ${formatR(s.totalR)} total, ${formatR(s.avgR, 2)} average over ${s.rCount} trades with a risk`
@@ -79,8 +80,8 @@ function comparison(trades: JournalTrade[], baseline: JournalTrade[]) {
 }
 
 function tradeTable(trades: JournalTrade[], timezone: string, withDay: boolean) {
-  const head = `| ${withDay ? "Day | " : ""}Open | Hold | Symbol | Side | Qty | Entry | Exit | Net | R | Setup | Mistakes | Rules | Note |`;
-  const rule = `|${withDay ? "---|" : ""}---|---|---|---|---|---|---|---|---|---|---|---|---|`;
+  const head = `| ${withDay ? "Day | " : ""}Open | Hold | Symbol | Side | Qty | Entry | Exit | Net | R | Grade | Setup | Confluences | Mistakes | Ended | Rules | Note |`;
+  const rule = `|${withDay ? "---|" : ""}${"---|".repeat(16)}`;
   const rows = [...trades]
     .sort((a, b) => a.openedAt.getTime() - b.openedAt.getTime())
     .map((t) => {
@@ -95,8 +96,11 @@ function tradeTable(trades: JournalTrade[], timezone: string, withDay: boolean) 
         t.exitPrice?.toString() ?? "",
         formatPnl(t.netPnl, true),
         formatR(rOf(t, "net"), 2),
+        t.grade ?? "",
         cellText(t.tags.join(", ")),
+        cellText(t.confluences.join(", ")),
         cellText(t.mistakes.join(", ")),
+        exitReasonLabel(t.exitReason) ?? "",
         t.followedRules === true ? "followed" : t.followedRules === false ? "broke" : "",
         t.note ? cellText(clip(t.note, NOTE_CHARS)) : "",
       ];
@@ -105,8 +109,10 @@ function tradeTable(trades: JournalTrade[], timezone: string, withDay: boolean) 
   return [head, rule, ...rows];
 }
 
-function breakdownLines(rows: { key: string; pnl: number; trades: number; winRate: number }[]) {
-  return rows.filter((r) => r.trades > 0).map((r) => `- ${r.key}: ${formatPnl(r.pnl)} over ${r.trades} (${formatPct(r.winRate, 0)} wins)`);
+function breakdownLines(rows: { key: string; pnl: number; trades: number; winRate: number | null }[]) {
+  return rows
+    .filter((r) => r.trades > 0)
+    .map((r) => `- ${r.key}: ${formatPnl(r.pnl)} over ${r.trades} (${r.winRate === null ? "no wins or losses" : `${formatPct(r.winRate, 0)} wins`})`);
 }
 
 export function buildPacket(input: PacketInput): string {

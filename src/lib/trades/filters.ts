@@ -1,5 +1,6 @@
 import { ranges, type RangeId } from "@/lib/filters";
-import { pnlOf, rOf, type PnlMode } from "@/lib/stats";
+import { outcomeOf, pnlOf, rOf, type PnlMode } from "@/lib/stats";
+import { gradeOptions } from "@/lib/trades/fields";
 import type { JournalTrade } from "@/lib/queries";
 
 export const sortKeys = ["date", "symbol", "pnl", "r", "qty", "duration"] as const;
@@ -12,8 +13,10 @@ export type TradeFilters = {
   range: RangeId | "";
   q: string;
   side: "" | "long" | "short";
-  result: "" | "win" | "loss";
+  result: "" | "win" | "loss" | "breakeven";
   tag: string;
+  /** A grade such as "A-", or "none" for ungraded trades. */
+  grade: string;
   rules: "" | "yes" | "no" | "unset";
   sort: SortKey;
   dir: "asc" | "desc";
@@ -22,7 +25,7 @@ export type TradeFilters = {
 };
 
 const defaults: TradeFilters = {
-  mode: "net", range: "", q: "", side: "", result: "", tag: "", rules: "",
+  mode: "net", range: "", q: "", side: "", result: "", tag: "", grade: "", rules: "",
   sort: "date", dir: "desc", page: 1, trade: null,
 };
 
@@ -39,8 +42,9 @@ export function parseTradeFilters(sp: SP, mode: PnlMode): TradeFilters {
     range: pick(str(sp.range), ["", ...ranges.map((r) => r.id)] as const, ""),
     q: str(sp.q).trim().slice(0, 32),
     side: pick(str(sp.side), ["", "long", "short"] as const, ""),
-    result: pick(str(sp.result), ["", "win", "loss"] as const, ""),
+    result: pick(str(sp.result), ["", "win", "loss", "breakeven"] as const, ""),
     tag: str(sp.tag).slice(0, 64),
+    grade: pick(str(sp.grade), ["", "none", ...gradeOptions], ""),
     rules: pick(str(sp.rules), ["", "yes", "no", "unset"] as const, ""),
     sort: pick(str(sp.sort), sortKeys, "date"),
     dir: str(sp.dir) === "asc" ? "asc" : "desc",
@@ -67,10 +71,9 @@ export function applyTradeFilters(trades: JournalTrade[], f: TradeFilters) {
   const filtered = trades.filter((t) => {
     if (q && !t.symbol.includes(q)) return false;
     if (f.side && t.side !== f.side) return false;
-    const pnl = pnlOf(t, f.mode);
-    if (f.result === "win" && pnl <= 0) return false;
-    if (f.result === "loss" && pnl >= 0) return false;
-    if (f.tag && !t.tags.includes(f.tag) && !t.mistakes.includes(f.tag)) return false;
+    if (f.result && outcomeOf(t, f.mode) !== f.result) return false;
+    if (f.tag && !t.tags.includes(f.tag) && !t.mistakes.includes(f.tag) && !t.confluences.includes(f.tag)) return false;
+    if (f.grade && (f.grade === "none" ? t.grade !== null : t.grade !== f.grade)) return false;
     if (f.rules === "yes" && t.followedRules !== true) return false;
     if (f.rules === "no" && t.followedRules !== false) return false;
     if (f.rules === "unset" && t.followedRules !== null) return false;

@@ -4,7 +4,7 @@ import { db, schema } from "@/db";
 import { fingerprints, type ParsedExecution } from "./parse";
 import { rebuildTrades } from "./rebuild";
 
-const assetClasses = new Set(["stock", "future", "forex", "option"]);
+const assetClasses = new Set(["stock", "future", "forex", "option", "cfd"]);
 const MAX_ROWS = 50_000;
 
 function isValid(e: ParsedExecution) {
@@ -39,7 +39,7 @@ export async function importFills(input: {
 }): Promise<ImportResult> {
   const { accountId, executions } = input;
   if (!executions.length) return { ok: false, error: "That file has no fills to import." };
-  if (executions.length > MAX_ROWS) return { ok: false, error: `Files are limited to ${MAX_ROWS.toLocaleString()} rows.` };
+  if (executions.length > MAX_ROWS) return { ok: false, error: `Files are limited to ${MAX_ROWS.toLocaleString("en-US")} rows.` };
   if (!executions.every(isValid)) return { ok: false, error: "Some rows are invalid. Check the preview and try again." };
 
   const account = await db.query.accounts.findFirst({ where: eq(schema.accounts.id, accountId) });

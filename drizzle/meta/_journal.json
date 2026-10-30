@@ -57,6 +57,13 @@
       "when": 1793365403961,
       "tag": "0007_skinny_talon",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1793368835772,
+      "tag": "0008_flat_dorian_gray",
+      "breakpoints": true
     }
   ]
 }

@@ -38,7 +38,7 @@ export type ManualTradeValues = {
 
 export type FieldErrors = Partial<Record<keyof ManualTradeInput, string>>;
 
-const assetClasses = ["stock", "future", "forex", "option"];
+const assetClasses = ["stock", "future", "forex", "option", "cfd"];
 const num = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n);
 
 /** "2026-10-05T09:31" in `tz` → instant. Null for anything malformed or impossible. */

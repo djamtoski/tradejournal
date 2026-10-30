@@ -15,7 +15,9 @@ const createdAt = () =>
     .notNull()
     .default(sql`(unixepoch() * 1000)`);
 
-export const assetClasses = ["stock", "future", "forex", "option"] as const;
+export const assetClasses = ["stock", "future", "forex", "option", "cfd"] as const;
+export const tradeGrades = ["A+", "A", "A-", "B+", "B", "B-", "C"] as const;
+export const exitReasons = ["target", "stop", "breakeven", "trailing", "manual", "time"] as const;
 export const sides = ["long", "short"] as const;
 
 /** App-wide preferences as key/value pairs (see src/lib/settings/queries.ts). */
@@ -76,6 +78,10 @@ export const trades = sqliteTable(
     targetPrice: real("target_price"),
     /** true = followed my rules. */
     followedRules: integer("followed_rules", { mode: "boolean" }),
+    /** Setup quality, A+ to C. */
+    grade: text("grade", { enum: tradeGrades }),
+    /** How the trade ended; "breakeven" makes it a scratch, not a win or loss. */
+    exitReason: text("exit_reason", { enum: exitReasons }),
     note: text("note"),
     createdAt: createdAt(),
   },

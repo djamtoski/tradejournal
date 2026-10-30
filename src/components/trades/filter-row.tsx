@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { tradesHref, type TradeFilters } from "@/lib/trades/filters";
+import { gradeOptions } from "@/lib/trades/fields";
 import { cn } from "@/lib/utils";
 
 const selectCls =
@@ -29,7 +30,7 @@ export function FilterRow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q]);
 
-  const active = filters.q || filters.side || filters.result || filters.tag || filters.rules;
+  const active = filters.q || filters.side || filters.result || filters.tag || filters.grade || filters.rules;
   const groups = Map.groupBy(tags, (t) => t.group ?? "Other");
 
   return (
@@ -50,9 +51,17 @@ export function FilterRow({
         <option value="short">Short</option>
       </select>
       <select aria-label="Result" className={selectCls} value={filters.result} onChange={(e) => go({ result: e.target.value as TradeFilters["result"] })}>
-        <option value="">Wins and losses</option>
+        <option value="">All results</option>
         <option value="win">Wins</option>
         <option value="loss">Losses</option>
+        <option value="breakeven">Break-even</option>
+      </select>
+      <select aria-label="Grade" className={selectCls} value={filters.grade} onChange={(e) => go({ grade: e.target.value })}>
+        <option value="">Any grade</option>
+        {gradeOptions.map((g) => (
+          <option key={g} value={g}>{g}</option>
+        ))}
+        <option value="none">Not graded</option>
       </select>
       <select aria-label="Tag" className={selectCls} value={filters.tag} onChange={(e) => go({ tag: e.target.value })}>
         <option value="">All tags</option>
@@ -75,7 +84,7 @@ export function FilterRow({
           type="button"
           onClick={() => {
             setQ("");
-            go({ q: "", side: "", result: "", tag: "", rules: "" });
+            go({ q: "", side: "", result: "", tag: "", grade: "", rules: "" });
           }}
           className="flex h-7 items-center gap-1 rounded-md px-2 text-[12px] text-faint transition-colors hover:bg-muted hover:text-foreground"
         >

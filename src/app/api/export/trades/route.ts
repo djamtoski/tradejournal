@@ -20,13 +20,14 @@ export async function GET() {
   const header = [
     "account", "symbol", "asset_class", "side", "quantity", "multiplier", "entry_price", "exit_price",
     "opened_at", "closed_at", "gross_pnl", "fees", "net_pnl", "mfe", "mae", "stop_price",
-    "target_price", "followed_rules", "tags", "note",
+    "target_price", "followed_rules", "grade", "exit_reason", "tags", "note",
   ];
   const rows = trades.map((t) => [
     accountName.get(t.accountId) ?? "", t.symbol, t.assetClass, t.side, t.quantity, t.multiplier,
     t.entryPrice, t.exitPrice, t.openedAt.toISOString(), t.closedAt?.toISOString() ?? "",
     t.grossPnl, t.fees, t.netPnl, t.mfe, t.mae, t.stopPrice, t.targetPrice,
     t.followedRules === null ? "" : t.followedRules ? "yes" : "no",
+    t.grade ?? "", t.exitReason ?? "",
     (tags.get(t.id) ?? []).join("; "), t.note ?? "",
   ]);
   const csv = [header, ...rows].map((r) => r.map(cell).join(",")).join("\r\n");

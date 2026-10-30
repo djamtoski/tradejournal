@@ -220,6 +220,7 @@ export function TradeFormDialog({
                 <option value="future">Future</option>
                 <option value="forex">Forex</option>
                 <option value="option">Option</option>
+                <option value="cfd">CFD</option>
               </select>
             </Field>
             <Field label="Multiplier" error={errors.multiplier}>
