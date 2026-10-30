@@ -12,8 +12,10 @@ import { getAccounts, getClosedTradesInDays, getLastTradeDay } from "@/lib/queri
 import { getSettings } from "@/lib/settings/queries";
 import { getGoals } from "@/lib/goals/queries";
 import { breachesByDay, isLimit, type Breach } from "@/lib/goals/evaluate";
+import { weekReviewSet } from "@/lib/review/queries";
+import { NotebookText } from "lucide-react";
 import { dayKey } from "@/lib/tz";
-import { dailySeries, summarize } from "@/lib/stats";
+import { dailySeries, summarize, weekStart } from "@/lib/stats";
 import { formatPct, formatPnl, pnlTone } from "@/lib/format";
 
 type View = "month" | "year";
@@ -80,7 +82,13 @@ async function Calendar({ searchParams }: { searchParams: PageProps<"/calendar">
 
       <div className="mx-auto grid max-w-[1400px] gap-4 p-6 xl:grid-cols-[minmax(0,1fr)_280px]">
         {view === "month" ? (
-          <MonthGrid month={month} days={days} today={today} breaches={breaches} />
+          <MonthGrid
+            month={month}
+            days={days}
+            today={today}
+            breaches={breaches}
+            weekReviews={await weekReviewSet(monthWeeks(month).map((w) => weekStart(civilKey(w.find(Boolean)!))))}
+          />
         ) : (
           <YearGrid year={month.getFullYear()} days={days} state={state} />
         )}
@@ -92,7 +100,19 @@ async function Calendar({ searchParams }: { searchParams: PageProps<"/calendar">
 
 type DayMap = Map<string, { day: string; pnl: number; trades: number }>;
 
-function MonthGrid({ month, days, today, breaches }: { month: Date; days: DayMap; today: string; breaches: Map<string, Breach[]> }) {
+function MonthGrid({
+  month,
+  days,
+  today,
+  breaches,
+  weekReviews,
+}: {
+  month: Date;
+  days: DayMap;
+  today: string;
+  breaches: Map<string, Breach[]>;
+  weekReviews: Set<string>;
+}) {
   const weeks = monthWeeks(month);
   const max = Math.max(0, ...[...days.values()].map((d) => Math.abs(d.pnl)));
 
@@ -107,6 +127,7 @@ function MonthGrid({ month, days, today, breaches }: { month: Date; days: DayMap
         const weekDays = week.filter(Boolean).map((d) => days.get(civilKey(d!))).filter(Boolean);
         const weekPnl = weekDays.reduce((s, d) => s + d!.pnl, 0);
         const weekTrades = weekDays.reduce((s, d) => s + d!.trades, 0);
+        const monday = weekStart(civilKey(week.find(Boolean)!));
         return (
           <div
             key={wi}
@@ -156,6 +177,14 @@ function MonthGrid({ month, days, today, breaches }: { month: Date; days: DayMap
               );
             })}
             <div className="flex h-24 flex-col items-end justify-end bg-background/40 p-2.5">
+              {weekReviews.has(monday) && (
+                <Link
+                  href={`/reviews#week-${monday}`}
+                  className="mb-auto flex items-center gap-1 text-[11px] text-faint transition-colors hover:text-foreground"
+                >
+                  <NotebookText className="size-3" strokeWidth={1.5} /> Review
+                </Link>
+              )}
               {weekTrades > 0 && (
                 <>
                   <span className={cn("num text-[14px]", pnlTone(weekPnl))}>{formatPnl(weekPnl)}</span>

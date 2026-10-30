@@ -23,6 +23,9 @@ import {
 import { getSettings } from "@/lib/settings/queries";
 import { getGoals } from "@/lib/goals/queries";
 import { evaluateDay, isLimit, type Breach } from "@/lib/goals/evaluate";
+import { getReview } from "@/lib/review/queries";
+import { ReviewBody } from "@/components/review/review-body";
+import { weekStart } from "@/lib/stats";
 import { addDaysKey, dayKey, formatTime } from "@/lib/tz";
 import { pnlOf, rOf, summarize, type PnlMode } from "@/lib/stats";
 import { formatMoney, formatPct, formatPnl, formatR, pnlTone } from "@/lib/format";
@@ -46,7 +49,7 @@ async function Daily({ searchParams }: { searchParams: PageProps<"/daily">["sear
   const key = requested ?? lastDay ?? dayKey(new Date(), timezone);
   const day = parseDay(key)!; // civil date, for labels only
 
-  const [trades, prev, next, entry, shots, open, breaches] = await Promise.all([
+  const [trades, prev, next, entry, shots, open, breaches, review, weekReview] = await Promise.all([
     getClosedTradesInDays(key, addDaysKey(key, 1), filters),
     getAdjacentTradingDay(key, "prev", filters),
     getAdjacentTradingDay(key, "next", filters),
@@ -54,6 +57,8 @@ async function Daily({ searchParams }: { searchParams: PageProps<"/daily">["sear
     getScreenshots({ day: key }),
     getOpenTrades(filters, key),
     dayBreaches(key),
+    getReview("day", key),
+    getReview("week", weekStart(key)),
   ]);
 
   const title = day.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
@@ -125,6 +130,27 @@ async function Daily({ searchParams }: { searchParams: PageProps<"/daily">["sear
               initialContent={entry?.content ?? ""}
               initialFollowedRules={entry?.followedRules ?? null}
             />
+          </Panel>
+          <Panel
+            title="Review"
+            meta={
+              weekReview ? (
+                <Link href={`/reviews#week-${weekReview.startDay}`} className="hover:text-foreground">
+                  Week review
+                </Link>
+              ) : undefined
+            }
+          >
+            {review ? (
+              <div className="px-4 pb-4 pt-1">
+                <ReviewBody content={review.content} />
+              </div>
+            ) : (
+              <p className="px-4 pb-4 pt-1 text-[13px] text-faint">
+                No review yet. In Claude Code, run{" "}
+                <code className="num rounded bg-muted px-1 text-[12px] text-muted-foreground">/review-trades day {key}</code>.
+              </p>
+            )}
           </Panel>
           <Panel
             title="Screenshots"

@@ -197,7 +197,7 @@ export function DangerZone() {
   return (
     <div className="flex flex-col gap-3 px-4 pb-4 pt-1">
       <p className="text-[13px] text-muted-foreground">
-        Erase every account, trade, tag, journal entry, playbook and goal, for example to remove the sample data before
+        Erase every account, trade, tag, journal entry, playbook, goal and review, for example to remove the sample data before
         importing your own. Download a backup first if you might want it back.
       </p>
       {!open ? (

@@ -9,18 +9,25 @@ numbers. Your data stays in a SQLite file on your machine.
 
 ## Features
 
-- **Dashboard**: P&L, win rate, profit factor, expectancy, equity curve,
-  daily P&L, and breakdowns by setup, symbol, weekday and entry hour
-- **Calendar**: month and year views of daily P&L
-- **Daily**: intraday P&L, trades, per-symbol blotter and a journal
+- **Dashboard**: tabs for overview (P&L, win rate, profit factor, R, equity
+  curve), time, activity, setups and instruments
+- **Filters**: account, asset class, range and net/gross, shared across pages
+- **Calendar**: month and year views of daily P&L, with goal breaches marked
+- **Daily**: intraday P&L, trades, per-symbol blotter, journal and review
 - **Trades**: filter, sort and edit trades: tags, mistakes, rule rating,
-  stop/target, MFE/MAE and notes
+  stop/target, MFE/MAE and notes; add manual trades and open positions
+- **Risk**: 1R per account or from the stop, with results in R-multiples
+- **Goals**: daily limits, profit targets and streaks
 - **Journal**: searchable entries, and whether rule-following days pay
 - **Playbook**: setup and rules documents, with live stats for linked setups
 - **Screenshots**: paste or drop charts, link them to a day or trade, and
   annotate with arrows, boxes, level lines and text
 - **Import**: any broker CSV, with automatic column matching, preview,
-  duplicate skipping, and fills grouped into round-trip trades
+  duplicate skipping, and fills grouped into round-trip trades. Tradovate
+  exports are recognised automatically, and a watched inbox folder imports
+  them as you save them
+- **Reviews**: run `/review-trades` in Claude Code to get a written review of
+  a day or week, saved into the app. The app itself never calls an AI service
 
 ## Stack
 
@@ -44,6 +51,8 @@ Open http://localhost:3000.
 | `npm test` | Run unit tests |
 | `npm run db:generate` | Create a migration after changing `src/db/schema.ts` |
 | `npm run db:studio` | Browse the database |
+| `npm run review:data -- --day latest` | Print the data packet `/review-trades` reads |
+| `npm run review:save -- --day YYYY-MM-DD --file <md>` | Save a review into the app |
 
 ## Notes
 

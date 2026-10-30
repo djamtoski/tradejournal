@@ -199,3 +199,21 @@ export const goals = sqliteTable("goals", {
   active: integer("active", { mode: "boolean" }).notNull().default(true),
   createdAt: createdAt(),
 });
+
+/** A written review of one day or one week (Monday start), saved by the /review-trades skill. */
+export const reviews = sqliteTable(
+  "reviews",
+  {
+    id: id(),
+    period: text("period", { enum: ["day", "week"] }).notNull(),
+    /** YYYY-MM-DD: the day, or the Monday of the week. */
+    startDay: text("start_day").notNull(),
+    /** Markdown. */
+    content: text("content").notNull(),
+    createdAt: createdAt(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`),
+  },
+  (t) => [uniqueIndex("reviews_period_start_idx").on(t.period, t.startDay)],
+);
