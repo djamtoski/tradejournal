@@ -43,7 +43,7 @@ async function Goals() {
         <span className="text-[12px] text-faint">All accounts · net P&L</span>
       </PageHeader>
 
-      <div className="mx-auto flex max-w-[1400px] flex-col gap-4 p-6">
+      <div className="mx-auto flex max-w-[1400px] flex-col gap-4 p-4 md:p-6">
         <StreakTiles streaks={streaks} hasLimits={limits.some((g) => g.active)} />
 
         <div className="grid gap-4 lg:grid-cols-2">
@@ -245,7 +245,7 @@ function GoalsSkeleton() {
   return (
     <>
       <div className="h-12 border-b border-border" />
-      <div className="mx-auto flex max-w-[1400px] flex-col gap-4 p-6">
+      <div className="mx-auto flex max-w-[1400px] flex-col gap-4 p-4 md:p-6">
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
           {Array.from({ length: 5 }, (_, i) => (
             <div key={i} className="h-[92px] animate-pulse rounded-[10px] border border-border bg-card" />

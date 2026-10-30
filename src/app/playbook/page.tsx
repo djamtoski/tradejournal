@@ -51,7 +51,7 @@ async function Playbook({ searchParams }: { searchParams: PageProps<"/playbook">
 
   if (!selected) {
     return (
-      <div className="mx-auto max-w-[1200px] p-6">
+      <div className="mx-auto max-w-[1200px] p-4 md:p-6">
         <Panel>
           <div className="flex flex-col items-center gap-2 px-6 py-16 text-center">
             <h2 className="text-[17px]">Write your first setup</h2>
@@ -66,7 +66,7 @@ async function Playbook({ searchParams }: { searchParams: PageProps<"/playbook">
   }
 
   return (
-    <div className="mx-auto grid max-w-[1200px] items-start gap-6 p-6 lg:grid-cols-[260px_minmax(0,1fr)]">
+    <div className="mx-auto grid max-w-[1200px] items-start gap-6 p-4 md:p-6 lg:grid-cols-[260px_minmax(0,1fr)]">
       <nav className="flex flex-col gap-0.5 lg:sticky lg:top-16">
         {entries.map((e) => (
           <Link
@@ -164,7 +164,7 @@ async function SetupStats({ tag }: { tag: string }) {
 
 function PlaybookSkeleton() {
   return (
-    <div className="mx-auto grid max-w-[1200px] gap-6 p-6 lg:grid-cols-[260px_minmax(0,1fr)]">
+    <div className="mx-auto grid max-w-[1200px] gap-6 p-4 md:p-6 lg:grid-cols-[260px_minmax(0,1fr)]">
       <div className="h-[200px] animate-pulse rounded-[10px] bg-card" />
       <div className="h-[500px] animate-pulse rounded-[10px] border border-border bg-card" />
     </div>

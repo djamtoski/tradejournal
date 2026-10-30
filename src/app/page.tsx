@@ -45,7 +45,7 @@ async function Dashboard({ searchParams }: { searchParams: PageProps<"/">["searc
       <PageHeader title="Dashboard">
         <FilterBar filters={filters} accounts={accounts} showGrouping={tab === "overview"} />
       </PageHeader>
-      <div className="mx-auto flex max-w-[1400px] flex-col gap-4 p-6">
+      <div className="mx-auto flex max-w-[1400px] flex-col gap-4 p-4 md:p-6">
         <TabNav active={tab} sp={sp} />
         {history && history.days.length > 0 && trades.length > 0 && (
           <StreakStrip streaks={history.streaks} hasLimits={history.goals.some((g) => g.active && isLimit(g))} />
@@ -117,7 +117,7 @@ function DashboardSkeleton() {
   return (
     <>
       <div className="h-12 border-b border-border" />
-      <div className="mx-auto flex max-w-[1400px] flex-col gap-4 p-6">
+      <div className="mx-auto flex max-w-[1400px] flex-col gap-4 p-4 md:p-6">
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
           {Array.from({ length: 6 }, (_, i) => (
             <div key={i} className="h-[92px] animate-pulse rounded-[10px] border border-border bg-card" />

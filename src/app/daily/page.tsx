@@ -85,7 +85,7 @@ async function Daily({ searchParams }: { searchParams: PageProps<"/daily">["sear
         <FilterBar filters={filters} accounts={accounts} showRange={false} />
       </PageHeader>
 
-      <div className="mx-auto grid max-w-[1400px] gap-4 p-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="mx-auto grid max-w-[1400px] gap-4 p-4 md:p-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="flex min-w-0 flex-col gap-4">
           {breaches.length > 0 && <BreachBanner breaches={breaches} timezone={timezone} />}
           {trades.length ? (
@@ -299,7 +299,7 @@ function TradesTable({ trades, mode, timezone }: { trades: JournalTrade[]; mode:
                   <span
                     className={cn(
                       "rounded px-1.5 py-0.5 text-[11px]",
-                      t.side === "long" ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground",
+                      t.side === "long" ? "bg-primary/15 text-primary-text" : "bg-muted text-muted-foreground",
                     )}
                   >
                     {t.side === "long" ? "Long" : "Short"}
@@ -396,7 +396,7 @@ function DailySkeleton() {
   return (
     <>
       <div className="h-12 border-b border-border" />
-      <div className="mx-auto grid max-w-[1400px] gap-4 p-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="mx-auto grid max-w-[1400px] gap-4 p-4 md:p-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="h-[520px] animate-pulse rounded-[10px] border border-border bg-card" />
         <div className="h-[320px] animate-pulse rounded-[10px] border border-border bg-card" />
       </div>

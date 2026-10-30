@@ -26,8 +26,9 @@ components.
 | Strong hairline (hover/focus) | `border-input` | `rgba(255,255,255,0.10)` |
 | Primary text | `text-foreground` | `#F7F8F8` |
 | Secondary text | `text-muted-foreground` | `#9CA3AF` |
-| Faint text (labels, axes) | `text-faint` | `#6B7280` |
-| Accent (focus, active nav, selected) | `text-primary` / `bg-primary` | `#5E6AD2` |
+| Faint text (labels, axes) | `text-faint` | `#7C818B` (lowest tier that keeps 4.5:1) |
+| Accent (focus, active nav, selected) | `bg-primary` | `#5E6AD2` |
+| Accent as text, or on `bg-primary/15` | `text-primary-text` | `#8B93E4` (plain primary is only 4:1 as text) |
 | Profit | `text-profit` / `bg-profit` | `#4CB782` |
 | Loss | `text-loss` / `bg-loss` | `#EB5757` |
 

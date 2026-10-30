@@ -18,6 +18,15 @@ import { formatPnl } from "@/lib/format";
 
 type Point = { day: string; pnl: number; equity: number; trades: number };
 
+/** Charts are SVG; this gives screen readers a one-sentence summary instead. */
+function ChartFrame({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div role="img" aria-label={label}>
+      {children}
+    </div>
+  );
+}
+
 const axis = {
   stroke: "var(--faint)",
   fontSize: 11,
@@ -59,30 +68,33 @@ function ChartTooltip({ active, payload }: TooltipContentProps) {
 }
 
 export function EquityChart({ data }: { data: Point[] }) {
+  const end = data.at(-1)?.equity ?? 0;
   return (
-    <ResponsiveContainer width="100%" height={260}>
-      <AreaChart data={data} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
-        <defs>
-          <linearGradient id="equityFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.12} />
-            <stop offset="100%" stopColor="var(--primary)" stopOpacity={0} />
-          </linearGradient>
-        </defs>
-        {grid}
-        <XAxis dataKey="day" tickFormatter={shortDate} minTickGap={48} {...axis} />
-        <YAxis tickFormatter={compactMoney} width={56} {...axis} />
-        <ReferenceLine y={0} stroke="rgb(255 255 255 / 0.1)" />
-        <Tooltip content={ChartTooltip} cursor={{ stroke: "rgb(255 255 255 / 0.12)" }} />
-        <Area
-          type="monotone"
-          dataKey="equity"
-          stroke="var(--primary)"
-          strokeWidth={1.5}
-          fill="url(#equityFill)"
-          activeDot={{ r: 3, strokeWidth: 0, fill: "var(--primary)" }}
-        />
-      </AreaChart>
-    </ResponsiveContainer>
+    <ChartFrame label={`Equity curve over ${data.length} trading days, ending at ${formatPnl(end)}`}>
+      <ResponsiveContainer width="100%" height={260}>
+        <AreaChart data={data} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
+          <defs>
+            <linearGradient id="equityFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.12} />
+              <stop offset="100%" stopColor="var(--primary)" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          {grid}
+          <XAxis dataKey="day" tickFormatter={shortDate} minTickGap={48} {...axis} />
+          <YAxis tickFormatter={compactMoney} width={56} {...axis} />
+          <ReferenceLine y={0} stroke="rgb(255 255 255 / 0.1)" />
+          <Tooltip content={ChartTooltip} cursor={{ stroke: "rgb(255 255 255 / 0.12)" }} />
+          <Area
+            type="monotone"
+            dataKey="equity"
+            stroke="var(--primary)"
+            strokeWidth={1.5}
+            fill="url(#equityFill)"
+            activeDot={{ r: 3, strokeWidth: 0, fill: "var(--primary)" }}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </ChartFrame>
   );
 }
 
@@ -112,49 +124,54 @@ function PeriodTooltip({ active, payload }: TooltipContentProps) {
 
 /** P&L bars per day, week or month (see groupedSeries). */
 export function PnlBarsChart({ data }: { data: PeriodPoint[] }) {
+  const green = data.filter((d) => d.pnl > 0).length;
   return (
-    <ResponsiveContainer width="100%" height={180}>
-      <BarChart data={data} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
-        {grid}
-        <XAxis dataKey="label" minTickGap={48} {...axis} />
-        <YAxis tickFormatter={compactMoney} width={56} {...axis} />
-        <ReferenceLine y={0} stroke="rgb(255 255 255 / 0.1)" />
-        <Tooltip content={PeriodTooltip} cursor={{ fill: "rgb(255 255 255 / 0.03)" }} />
-        <Bar dataKey="pnl" radius={[2, 2, 2, 2]} maxBarSize={data.length > 40 ? 14 : 32}>
-          {data.map((d) => (
-            <Cell key={d.key} fill={d.pnl >= 0 ? "var(--profit)" : "var(--loss)"} />
-          ))}
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
+    <ChartFrame label={`P&L bars for ${data.length} periods, ${green} green and ${data.length - green} red or flat`}>
+      <ResponsiveContainer width="100%" height={180}>
+        <BarChart data={data} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
+          {grid}
+          <XAxis dataKey="label" minTickGap={48} {...axis} />
+          <YAxis tickFormatter={compactMoney} width={56} {...axis} />
+          <ReferenceLine y={0} stroke="rgb(255 255 255 / 0.1)" />
+          <Tooltip content={PeriodTooltip} cursor={{ fill: "rgb(255 255 255 / 0.03)" }} />
+          <Bar dataKey="pnl" radius={[2, 2, 2, 2]} maxBarSize={data.length > 40 ? 14 : 32}>
+            {data.map((d) => (
+              <Cell key={d.key} fill={d.pnl >= 0 ? "var(--profit)" : "var(--loss)"} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </ChartFrame>
   );
 }
 
 /** Trade counts per R bucket; loss buckets red, win buckets green. */
 export function RDistributionChart({ data }: { data: { label: string; trades: number }[] }) {
   return (
-    <ResponsiveContainer width="100%" height={200}>
-      <BarChart data={data} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
-        {grid}
-        <XAxis dataKey="label" interval={0} {...axis} />
-        <YAxis allowDecimals={false} width={40} {...axis} />
-        <Tooltip
-          cursor={{ fill: "rgb(255 255 255 / 0.03)" }}
-          content={({ active, payload }) =>
-            active && payload?.length ? (
-              <div className="rounded-md border border-input bg-popover px-3 py-2 text-[12px] shadow-[0_8px_24px_rgb(0_0_0/0.4)]">
-                <div className="text-muted-foreground">{(payload[0].payload as { label: string }).label}</div>
-                <div className="num text-foreground">{payload[0].value} trades</div>
-              </div>
-            ) : null
-          }
-        />
-        <Bar dataKey="trades" radius={[2, 2, 0, 0]} maxBarSize={36}>
-          {data.map((d, i) => (
-            <Cell key={d.label} fill={i < 3 ? "var(--loss)" : "var(--profit)"} fillOpacity={0.85} />
-          ))}
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
+    <ChartFrame label={`Trades by R multiple: ${data.filter((d) => d.trades).map((d) => `${d.label} ${d.trades}`).join(", ")}`}>
+      <ResponsiveContainer width="100%" height={200}>
+        <BarChart data={data} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
+          {grid}
+          <XAxis dataKey="label" interval={0} {...axis} />
+          <YAxis allowDecimals={false} width={40} {...axis} />
+          <Tooltip
+            cursor={{ fill: "rgb(255 255 255 / 0.03)" }}
+            content={({ active, payload }) =>
+              active && payload?.length ? (
+                <div className="rounded-md border border-input bg-popover px-3 py-2 text-[12px] shadow-[0_8px_24px_rgb(0_0_0/0.4)]">
+                  <div className="text-muted-foreground">{(payload[0].payload as { label: string }).label}</div>
+                  <div className="num text-foreground">{payload[0].value} trades</div>
+                </div>
+              ) : null
+            }
+          />
+          <Bar dataKey="trades" radius={[2, 2, 0, 0]} maxBarSize={36}>
+            {data.map((d, i) => (
+              <Cell key={d.label} fill={i < 3 ? "var(--loss)" : "var(--profit)"} fillOpacity={0.85} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </ChartFrame>
   );
 }

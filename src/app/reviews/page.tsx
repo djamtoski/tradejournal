@@ -39,7 +39,7 @@ async function Reviews({ searchParams }: { searchParams: PageProps<"/reviews">["
         </Segmented>
       </PageHeader>
 
-      <div className="mx-auto flex max-w-[860px] flex-col gap-4 p-6">
+      <div className="mx-auto flex max-w-[860px] flex-col gap-4 p-4 md:p-6">
         {reviews.length ? (
           reviews.map((r) => {
             const title =
@@ -82,7 +82,7 @@ function ReviewsSkeleton() {
   return (
     <>
       <div className="h-12 border-b border-border" />
-      <div className="mx-auto flex max-w-[860px] flex-col gap-4 p-6">
+      <div className="mx-auto flex max-w-[860px] flex-col gap-4 p-4 md:p-6">
         <div className="h-[320px] animate-pulse rounded-[10px] border border-border bg-card" />
       </div>
     </>

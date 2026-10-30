@@ -11,6 +11,7 @@
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-inter-tight);
   --color-faint: var(--faint);
+  --color-primary-text: var(--primary-text);
   --color-profit: var(--profit);
   --color-loss: var(--loss);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -62,11 +63,14 @@
   --popover-foreground: #f7f8f8;
   --primary: #5e6ad2;
   --primary-foreground: #f7f8f8;
+  /* Primary as text or on primary/15 tints; plain --primary is only 4:1 there. */
+  --primary-text: #8b93e4;
   --secondary: #16171c;
   --secondary-foreground: #f7f8f8;
   --muted: #16171c;
   --muted-foreground: #9ca3af;
-  --faint: #6b7280;
+  /* Lowest text tier; still 4.5:1 on every surface (WCAG AA). */
+  --faint: #7c818b;
   --accent: #16171c;
   --accent-foreground: #f7f8f8;
   --destructive: #eb5757;
@@ -108,6 +112,21 @@
     @apply font-heading;
     font-weight: 600;
     letter-spacing: -0.02em;
+  }
+}
+
+/* Keep state changes but drop looping and sliding motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+  .animate-pulse,
+  .animate-spin {
+    animation: none !important;
   }
 }
 
