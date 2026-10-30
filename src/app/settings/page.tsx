@@ -7,6 +7,8 @@ import { PageHeader } from "@/components/shell/page-header";
 import { Panel } from "@/components/dashboard/card";
 import { AccountsSection, DangerZone, TagsSection } from "@/components/settings/sections";
 import { TimezoneSelect } from "@/components/settings/timezone-select";
+import { InboxSettings } from "@/components/settings/inbox-settings";
+import { inboxStatus } from "@/lib/import/inbox";
 import { getSettings } from "@/lib/settings/queries";
 
 export default function SettingsPage() {
@@ -43,6 +45,7 @@ async function Settings() {
   const imports = by(importCounts);
   const uses = by(tagUses);
   const [[{ n: tradeTotal }], [{ n: journalTotal }], [{ n: playbookTotal }]] = totals;
+  const inbox = inboxStatus();
 
   return (
     <>
@@ -62,6 +65,20 @@ async function Settings() {
           }))}
         />
       </Section>
+
+      {accounts.length > 0 && (
+        <Section
+          title="Broker inbox"
+          description="Save Tradovate Orders or Performance CSV exports into this folder and they're imported into the chosen account while Ledger is running. Use a folder just for this, inside your user folder. Imported files move to imported/, exports that fail move to failed/ with a note, and other files are left alone."
+        >
+          <InboxSettings
+            folder={settings.inboxFolder}
+            accountId={settings.inboxAccountId}
+            accounts={accounts.map((a) => ({ id: a.id, name: a.name }))}
+            status={{ watching: inbox.watching, error: inbox.error, lastResults: inbox.last?.results }}
+          />
+        </Section>
+      )}
 
       <Section title="Tags" description="Organise setups and mistakes. The number is how many trades use each tag.">
         <TagsSection

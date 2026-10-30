@@ -5,10 +5,16 @@ import { revalidatePath } from "next/cache";
 import { db, schema } from "@/db";
 import { removeImage } from "@/lib/screenshots/storage";
 import { isValidTimezone } from "@/lib/tz";
+import { startInboxWatcher, stopInboxWatcher } from "@/lib/import/inbox";
+import { homedir } from "node:os";
+import { isAbsolute, resolve, sep } from "node:path";
+import { stat } from "node:fs/promises";
 
 // SQLite here doesn't enforce FK cascades, so every delete cleans up its children explicitly.
 
 type Result = { ok: true } | { ok: false; error: string };
+
+const inboxKeys = ["inboxFolder", "inboxAccountId"];
 
 const clean = (s: string, max = 64) => s.trim().slice(0, max);
 const done = (): Result => {
@@ -45,9 +51,12 @@ export async function deleteAccount(id: number): Promise<Result> {
     await tx.delete(schema.trades).where(eq(schema.trades.accountId, id));
     await tx.delete(schema.imports).where(eq(schema.imports.accountId, id));
     await tx.delete(schema.goals).where(eq(schema.goals.accountId, id));
+    const inbox = await tx.query.settings.findFirst({ where: eq(schema.settings.key, "inboxAccountId") });
+    if (inbox?.value === String(id)) await tx.delete(schema.settings).where(inArray(schema.settings.key, inboxKeys));
     await tx.delete(schema.accounts).where(eq(schema.accounts.id, id));
   });
   await Promise.all(files.map(removeImage));
+  await startInboxWatcher(); // stops it if the inbox pointed at this account
   return done();
 }
 
@@ -128,11 +137,13 @@ export async function eraseAllData(confirmation: string): Promise<Result> {
     await tx.delete(schema.imports);
     await tx.delete(schema.journalEntries);
     await tx.delete(schema.goals);
+    await tx.delete(schema.settings).where(inArray(schema.settings.key, inboxKeys));
     await tx.delete(schema.tags);
     await tx.delete(schema.tagGroups);
     await tx.delete(schema.accounts);
   });
   await Promise.all(files.map(removeImage));
+  stopInboxWatcher();
   return done();
 }
 
@@ -153,5 +164,37 @@ export async function setAccountRisk(id: number, raw: string): Promise<Result> {
     return { ok: false, error: "Enter an amount above 0" };
   }
   await db.update(schema.accounts).set({ defaultRisk: value }).where(eq(schema.accounts.id, id));
+  return done();
+}
+
+/** Folder to watch for broker exports and the account they go into. A blank folder turns the inbox off. */
+export async function setInbox(folder: string, accountId: number | null): Promise<Result> {
+  const dir = folder.trim().replace(/^"(.*)"$/, "$1");
+  const upsert = (key: string, value: string) =>
+    db.insert(schema.settings).values({ key, value }).onConflictDoUpdate({ target: schema.settings.key, set: { value } });
+
+  if (!dir) {
+    await db.delete(schema.settings).where(inArray(schema.settings.key, inboxKeys));
+    stopInboxWatcher();
+    return done();
+  }
+  if (!isAbsolute(dir)) return { ok: false, error: "Enter the folder's full path, starting with a drive letter." };
+  // The inbox reads and moves files, so it must be a folder inside the user's home folder.
+  const home = homedir();
+  let folderPath = resolve(dir);
+  if (process.platform === "win32" && folderPath.toLowerCase().startsWith(`${home.toLowerCase()}${sep}`)) {
+    folderPath = home + folderPath.slice(home.length); // Windows paths are case-insensitive
+  }
+  if (!folderPath.startsWith(home + sep)) {
+    return { ok: false, error: `Choose a folder inside ${home}, for example a "ledger-inbox" folder in Downloads.` };
+  }
+  const ok = await stat(folderPath).then((s) => s.isDirectory(), () => false);
+  if (!ok) return { ok: false, error: "That folder doesn't exist. Create it first." };
+  if (!accountId || !(await db.query.accounts.findFirst({ where: eq(schema.accounts.id, accountId) }))) {
+    return { ok: false, error: "Choose the account these files belong to." };
+  }
+  await upsert("inboxFolder", folderPath);
+  await upsert("inboxAccountId", String(accountId));
+  await startInboxWatcher();
   return done();
 }
