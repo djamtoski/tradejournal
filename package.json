@@ -11,6 +11,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx scripts/seed.ts",
+    "review:data": "tsx scripts/review-data.ts",
+    "review:save": "tsx scripts/save-review.ts",
     "test": "tsx --test \"src/**/*.test.ts\"",
     "typecheck": "next typegen && tsc --noEmit"
   },

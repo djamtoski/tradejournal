@@ -1,35 +1,14 @@
-import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lt } from "drizzle-orm";
+import { and, asc, desc, eq, gte, isNotNull, isNull, lt } from "drizzle-orm";
 import { connection } from "next/server";
 import { db, schema } from "@/db";
 import { rangeStart, type RangeId, type Scope } from "./filters";
 import { getSettings } from "./settings/queries";
-import { riskOf, type StatTrade } from "./stats";
-import { addDaysKey, dayKey, startOfDay, zonedParts } from "./tz";
+import { addDaysKey, dayKey, startOfDay } from "./tz";
 
-export type JournalTrade = StatTrade & {
-  assetClass: string;
-  quantity: number;
-  entryPrice: number;
-  exitPrice: number | null;
-  fees: number;
-  followedRules: boolean | null;
-  note: string | null;
-  accountId: number;
-  multiplier: number;
-  stopPrice: number | null;
-  targetPrice: number | null;
-  /** Tags from the "Mistake" group; `tags` holds the rest (setups etc). */
-  mistakes: string[];
-};
+import { loadClosedTrades, scopeWhere, type JournalTrade } from "./trades/load";
 
-/** SQL conditions for the shared account / asset-class filter. Empty lists mean "all". */
-function scopeWhere(scope?: Scope) {
-  const { trades } = schema;
-  return and(
-    scope?.accountIds.length ? inArray(trades.accountId, scope.accountIds) : undefined,
-    scope?.assetClasses.length ? inArray(trades.assetClass, scope.assetClasses) : undefined,
-  );
-}
+export type { JournalTrade };
+export { isMistakeGroup } from "./trades/load";
 
 /** Closed trades in range, with tag names attached. */
 export async function getClosedTrades(range: RangeId, scope?: Scope): Promise<JournalTrade[]> {
@@ -46,83 +25,11 @@ export async function getClosedTradesInDays(startDay: string, endDay: string, sc
 }
 
 /** Closed trades with closedAt in [start, end). Either bound may be open. */
-export async function getClosedTradesBetween(
-  start: Date | null,
-  end: Date | null,
-  scope?: Scope,
-): Promise<JournalTrade[]> {
+export async function getClosedTradesBetween(start: Date | null, end: Date | null, scope?: Scope): Promise<JournalTrade[]> {
   await connection();
-  const { trades } = schema;
   const { timezone } = await getSettings();
-
-  const rows = await db.query.trades.findMany({
-    where: and(
-      isNotNull(trades.closedAt),
-      start ? gte(trades.closedAt, start) : undefined,
-      end ? lt(trades.closedAt, end) : undefined,
-      scopeWhere(scope),
-    ),
-    orderBy: asc(trades.closedAt),
-    columns: {
-      id: true,
-      symbol: true,
-      side: true,
-      assetClass: true,
-      quantity: true,
-      entryPrice: true,
-      exitPrice: true,
-      openedAt: true,
-      closedAt: true,
-      grossPnl: true,
-      fees: true,
-      netPnl: true,
-      followedRules: true,
-      note: true,
-      accountId: true,
-      multiplier: true,
-      stopPrice: true,
-      targetPrice: true,
-    },
-  });
-  const defaultRisk = new Map(
-    (await db.select({ id: schema.accounts.id, risk: schema.accounts.defaultRisk }).from(schema.accounts)).map(
-      (a) => [a.id, a.risk],
-    ),
-  );
-
-  const tagRows = await db
-    .select({
-      tradeId: schema.tradeTags.tradeId,
-      name: schema.tags.name,
-      group: schema.tagGroups.name,
-    })
-    .from(schema.tradeTags)
-    .innerJoin(schema.tags, eq(schema.tags.id, schema.tradeTags.tagId))
-    .leftJoin(schema.tagGroups, eq(schema.tagGroups.id, schema.tags.groupId));
-  const tagsByTrade = new Map<number, { tags: string[]; mistakes: string[] }>();
-  for (const { tradeId, name, group } of tagRows) {
-    const entry = tagsByTrade.get(tradeId) ?? { tags: [], mistakes: [] };
-    (isMistakeGroup(group) ? entry.mistakes : entry.tags).push(name);
-    tagsByTrade.set(tradeId, entry);
-  }
-
-  return rows.map((r) => {
-    const opened = zonedParts(r.openedAt, timezone);
-    return {
-      ...r,
-      closedAt: r.closedAt!,
-      day: dayKey(r.closedAt!, timezone),
-      openHour: opened.hour,
-      openWeekday: opened.weekday,
-      risk: riskOf({ ...r, defaultRisk: defaultRisk.get(r.accountId) ?? null }),
-      tags: tagsByTrade.get(r.id)?.tags ?? [],
-      mistakes: tagsByTrade.get(r.id)?.mistakes ?? [],
-    };
-  });
+  return loadClosedTrades(start, end, timezone, scope);
 }
-
-/** Tags in a group named "Mistake(s)" are tracked separately from setups. */
-export const isMistakeGroup = (group: string | null) => !!group && /^mistakes?$/i.test(group.trim());
 
 /** Positions not yet closed (manual or imported), oldest first. Optionally only those opened on `day`. */
 export async function getOpenTrades(scope?: Scope, day?: string) {

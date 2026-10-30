@@ -4,7 +4,7 @@ import { db, schema } from "@/db";
 /** Full JSON snapshot of every table, for backups and moving between machines. */
 export async function GET() {
   await connection();
-  const [accounts, imports, executions, trades, tagGroups, tags, tradeTags, journalEntries, playbooks, screenshots, goals, settings] =
+  const [accounts, imports, executions, trades, tagGroups, tags, tradeTags, journalEntries, playbooks, screenshots, goals, settings, reviews] =
     await Promise.all([
       db.select().from(schema.accounts),
       db.select().from(schema.imports),
@@ -18,6 +18,7 @@ export async function GET() {
       db.select().from(schema.screenshots),
       db.select().from(schema.goals),
       db.select().from(schema.settings),
+      db.select().from(schema.reviews),
     ]);
 
   const body = JSON.stringify(
@@ -25,7 +26,7 @@ export async function GET() {
       app: "ledger",
       version: 1,
       exportedAt: new Date().toISOString(),
-      data: { accounts, imports, executions, trades, tagGroups, tags, tradeTags, journalEntries, playbooks, screenshots, goals, settings },
+      data: { accounts, imports, executions, trades, tagGroups, tags, tradeTags, journalEntries, playbooks, screenshots, goals, settings, reviews },
     },
     null,
     2,

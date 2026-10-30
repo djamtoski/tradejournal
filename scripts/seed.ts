@@ -53,6 +53,7 @@ const mistakeTags = ["Chased entry", "Moved stop", "Oversized"];
 async function main() {
   await db.delete(schema.playbooks);
   await db.delete(schema.goals);
+  await db.delete(schema.reviews);
   await db.delete(schema.screenshots);
   await rm("data/screenshots", { recursive: true, force: true });
   await db.delete(schema.tradeTags);

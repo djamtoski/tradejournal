@@ -106,7 +106,7 @@ Second round, one pull request per topic:
 - [x] Dashboard tabs: Overview, Time, Activity, Setups, Instruments
 - [x] Goals and streaks
 - [x] Tradovate import preset and watched inbox folder
-- [ ] AI review through Claude Code (`/review-trades`)
+- [x] AI review through Claude Code (`/review-trades`)
 
 Deliberately left out: rich-text journal/playbook, currency, light theme,
 restore from backup, payments and telemetry.

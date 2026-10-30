@@ -137,6 +137,7 @@ export async function eraseAllData(confirmation: string): Promise<Result> {
     await tx.delete(schema.imports);
     await tx.delete(schema.journalEntries);
     await tx.delete(schema.goals);
+    await tx.delete(schema.reviews);
     await tx.delete(schema.settings).where(inArray(schema.settings.key, inboxKeys));
     await tx.delete(schema.tags);
     await tx.delete(schema.tagGroups);
