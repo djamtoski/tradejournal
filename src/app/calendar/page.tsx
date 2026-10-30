@@ -10,6 +10,8 @@ import { cn } from "@/lib/utils";
 import { addMonths, civilKey, monthKey, monthLabel, monthWeeks, parseDay, parseMonth } from "@/lib/dates";
 import { getAccounts, getClosedTradesInDays, getLastTradeDay } from "@/lib/queries";
 import { getSettings } from "@/lib/settings/queries";
+import { getGoals } from "@/lib/goals/queries";
+import { breachesByDay, isLimit, type Breach } from "@/lib/goals/evaluate";
 import { dayKey } from "@/lib/tz";
 import { dailySeries, summarize } from "@/lib/stats";
 import { formatPct, formatPnl, pnlTone } from "@/lib/format";
@@ -46,8 +48,12 @@ async function Calendar({ searchParams }: { searchParams: PageProps<"/calendar">
 
   const start = view === "year" ? new Date(month.getFullYear(), 0, 1) : month;
   const end = view === "year" ? new Date(month.getFullYear() + 1, 0, 1) : addMonths(month, 1);
-  const trades = await getClosedTradesInDays(civilKey(start), civilKey(end), filters);
+  const [trades, goals] = await Promise.all([getClosedTradesInDays(civilKey(start), civilKey(end), filters), getGoals()]);
   const days = new Map(dailySeries(trades, mode).map((d) => [d.day, d]));
+  // Limits apply to all accounts combined, so check them against unfiltered trades.
+  const breaches = goals.some((g) => g.active && isLimit(g))
+    ? breachesByDay(filters.accountIds.length || filters.assetClasses.length ? await getClosedTradesInDays(civilKey(start), civilKey(end)) : trades, goals)
+    : new Map<string, Breach[]>();
   const summary = summarize(trades, mode);
 
   const step = view === "year" ? 12 : 1;
@@ -74,7 +80,7 @@ async function Calendar({ searchParams }: { searchParams: PageProps<"/calendar">
 
       <div className="mx-auto grid max-w-[1400px] gap-4 p-6 xl:grid-cols-[minmax(0,1fr)_280px]">
         {view === "month" ? (
-          <MonthGrid month={month} days={days} today={today} />
+          <MonthGrid month={month} days={days} today={today} breaches={breaches} />
         ) : (
           <YearGrid year={month.getFullYear()} days={days} state={state} />
         )}
@@ -86,7 +92,7 @@ async function Calendar({ searchParams }: { searchParams: PageProps<"/calendar">
 
 type DayMap = Map<string, { day: string; pnl: number; trades: number }>;
 
-function MonthGrid({ month, days, today }: { month: Date; days: DayMap; today: string }) {
+function MonthGrid({ month, days, today, breaches }: { month: Date; days: DayMap; today: string; breaches: Map<string, Breach[]> }) {
   const weeks = monthWeeks(month);
   const max = Math.max(0, ...[...days.values()].map((d) => Math.abs(d.pnl)));
 
@@ -110,10 +116,20 @@ function MonthGrid({ month, days, today }: { month: Date; days: DayMap; today: s
               if (!date) return <div key={di} className="h-24 border-r border-border bg-background/40" />;
               const key = civilKey(date);
               const d = days.get(key);
+              const broke = breaches.get(key);
               const cell = (
                 <>
-                  <span className={cn("num text-[12px]", key === today ? "text-primary" : "text-faint")}>
-                    {date.getDate()}
+                  <span className="flex items-center justify-between">
+                    <span className={cn("num text-[12px]", key === today ? "text-primary" : "text-faint")}>
+                      {date.getDate()}
+                    </span>
+                    {broke && (
+                      <span
+                        className="size-1.5 rounded-full bg-loss"
+                        title={broke.map((b) => b.text).join("; ")}
+                        aria-label={`Broke a limit: ${broke.map((b) => b.text).join("; ")}`}
+                      />
+                    )}
                   </span>
                   {d && (
                     <span className="mt-auto flex flex-col items-end">

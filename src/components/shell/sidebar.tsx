@@ -12,6 +12,7 @@ import {
   NotebookPen,
   Settings,
   Sun,
+  Target,
   Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,7 @@ const nav = [
   { href: "/trades", label: "Trades", icon: ListOrdered, shortcut: "T" },
   { href: "/journal", label: "Journal", icon: NotebookPen, shortcut: "J" },
   { href: "/playbook", label: "Playbook", icon: BookOpen, shortcut: "P" },
+  { href: "/goals", label: "Goals", icon: Target, shortcut: "G" },
   { href: "/screenshots", label: "Screenshots", icon: Images, shortcut: "S" },
 ];
 

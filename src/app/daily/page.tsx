@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { CalendarDays, Check, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { CalendarDays, Check, ChevronLeft, ChevronRight, TriangleAlert, X } from "lucide-react";
 import { PageHeader } from "@/components/shell/page-header";
 import { FilterBar } from "@/components/shell/filter-bar";
 import { readFilters } from "@/lib/filters-server";
@@ -21,6 +21,8 @@ import {
   type JournalTrade,
 } from "@/lib/queries";
 import { getSettings } from "@/lib/settings/queries";
+import { getGoals } from "@/lib/goals/queries";
+import { evaluateDay, isLimit, type Breach } from "@/lib/goals/evaluate";
 import { addDaysKey, dayKey, formatTime } from "@/lib/tz";
 import { pnlOf, rOf, summarize, type PnlMode } from "@/lib/stats";
 import { formatMoney, formatPct, formatPnl, formatR, pnlTone } from "@/lib/format";
@@ -44,13 +46,14 @@ async function Daily({ searchParams }: { searchParams: PageProps<"/daily">["sear
   const key = requested ?? lastDay ?? dayKey(new Date(), timezone);
   const day = parseDay(key)!; // civil date, for labels only
 
-  const [trades, prev, next, entry, shots, open] = await Promise.all([
+  const [trades, prev, next, entry, shots, open, breaches] = await Promise.all([
     getClosedTradesInDays(key, addDaysKey(key, 1), filters),
     getAdjacentTradingDay(key, "prev", filters),
     getAdjacentTradingDay(key, "next", filters),
     getJournalEntry(key),
     getScreenshots({ day: key }),
     getOpenTrades(filters, key),
+    dayBreaches(key),
   ]);
 
   const title = day.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
@@ -79,6 +82,7 @@ async function Daily({ searchParams }: { searchParams: PageProps<"/daily">["sear
 
       <div className="mx-auto grid max-w-[1400px] gap-4 p-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="flex min-w-0 flex-col gap-4">
+          {breaches.length > 0 && <BreachBanner breaches={breaches} timezone={timezone} />}
           {trades.length ? (
             <DayDetail trades={trades} mode={mode} timezone={timezone} />
           ) : (
@@ -145,6 +149,31 @@ async function Daily({ searchParams }: { searchParams: PageProps<"/daily">["sear
         </div>
       </div>
     </>
+  );
+}
+
+/** Limits are checked against everything traded that day, whatever the filter bar shows. */
+async function dayBreaches(key: string) {
+  const goals = await getGoals();
+  if (!goals.some((g) => g.active && isLimit(g))) return [];
+  return evaluateDay(await getClosedTradesInDays(key, addDaysKey(key, 1)), goals);
+}
+
+function BreachBanner({ breaches, timezone }: { breaches: Breach[]; timezone: string }) {
+  return (
+    <div role="status" className="flex items-start gap-3 rounded-[10px] border border-loss/30 bg-loss/10 px-4 py-3 text-[13px]">
+      <TriangleAlert className="mt-0.5 size-4 shrink-0 text-loss" strokeWidth={1.5} />
+      <ul className="flex flex-1 flex-col gap-0.5">
+        {breaches.map((b) => (
+          <li key={b.goal.id} className="text-foreground">
+            <span className="num text-muted-foreground">{formatTime(b.at, timezone)}</span> · {b.text}
+          </li>
+        ))}
+      </ul>
+      <Link href="/goals" className="shrink-0 text-[12px] text-muted-foreground hover:text-foreground">
+        Goals
+      </Link>
+    </div>
   );
 }
 

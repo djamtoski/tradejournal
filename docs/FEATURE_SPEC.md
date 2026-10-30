@@ -104,7 +104,7 @@ Second round, one pull request per topic:
 - [x] Manual trades and open positions
 - [x] Risk: per-account 1R and R-multiples
 - [x] Dashboard tabs: Overview, Time, Activity, Setups, Instruments
-- [ ] Goals and streaks
+- [x] Goals and streaks
 - [ ] Tradovate import preset and watched inbox folder
 - [ ] AI review through Claude Code (`/review-trades`)
 

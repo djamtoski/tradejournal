@@ -44,6 +44,7 @@ export async function deleteAccount(id: number): Promise<Result> {
     await tx.delete(schema.executions).where(eq(schema.executions.accountId, id));
     await tx.delete(schema.trades).where(eq(schema.trades.accountId, id));
     await tx.delete(schema.imports).where(eq(schema.imports.accountId, id));
+    await tx.delete(schema.goals).where(eq(schema.goals.accountId, id));
     await tx.delete(schema.accounts).where(eq(schema.accounts.id, id));
   });
   await Promise.all(files.map(removeImage));
@@ -126,6 +127,7 @@ export async function eraseAllData(confirmation: string): Promise<Result> {
     await tx.delete(schema.trades);
     await tx.delete(schema.imports);
     await tx.delete(schema.journalEntries);
+    await tx.delete(schema.goals);
     await tx.delete(schema.tags);
     await tx.delete(schema.tagGroups);
     await tx.delete(schema.accounts);

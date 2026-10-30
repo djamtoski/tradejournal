@@ -176,3 +176,24 @@ export const screenshots = sqliteTable("screenshots", {
   caption: text("caption"),
   createdAt: createdAt(),
 });
+
+export const goalKinds = [
+  "max_trades_per_day",
+  "max_daily_loss",
+  "max_consecutive_losses",
+  "profit_target",
+] as const;
+export const goalPeriods = ["day", "week", "month"] as const;
+
+/** A daily limit (max trades, max loss, losses in a row) or a P&L target per day/week/month. */
+export const goals = sqliteTable("goals", {
+  id: id(),
+  kind: text("kind", { enum: goalKinds }).notNull(),
+  /** Only profit targets use week/month; limits are always per day. */
+  period: text("period", { enum: goalPeriods }).notNull().default("day"),
+  value: real("value").notNull(),
+  /** Null = applies to all accounts combined. */
+  accountId: integer("account_id").references(() => accounts.id, { onDelete: "cascade" }),
+  active: integer("active", { mode: "boolean" }).notNull().default(true),
+  createdAt: createdAt(),
+});
