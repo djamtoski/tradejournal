@@ -5,9 +5,11 @@ import type { JournalTrade } from "@/lib/queries";
 export const sortKeys = ["date", "symbol", "pnl", "qty", "duration"] as const;
 export type SortKey = (typeof sortKeys)[number];
 
+/** Trades-page filters kept in the URL. `mode` comes from the shared filters, not the URL. */
 export type TradeFilters = {
-  range: RangeId;
   mode: PnlMode;
+  /** A range forced by a deep link (e.g. "all trades with this tag"); kept while browsing. */
+  range: RangeId | "";
   q: string;
   side: "" | "long" | "short";
   result: "" | "win" | "loss";
@@ -20,21 +22,21 @@ export type TradeFilters = {
 };
 
 const defaults: TradeFilters = {
-  range: "90d", mode: "net", q: "", side: "", result: "", tag: "", rules: "",
+  mode: "net", range: "", q: "", side: "", result: "", tag: "", rules: "",
   sort: "date", dir: "desc", page: 1, trade: null,
 };
 
 type SP = Record<string, string | string[] | undefined>;
 const str = (v: string | string[] | undefined) => (typeof v === "string" ? v : "");
 
-export function parseTradeFilters(sp: SP): TradeFilters {
+export function parseTradeFilters(sp: SP, mode: PnlMode): TradeFilters {
   const pick = <T extends string>(v: string, allowed: readonly T[], fallback: T) =>
     (allowed as readonly string[]).includes(v) ? (v as T) : fallback;
   const page = Number.parseInt(str(sp.page), 10);
   const trade = Number.parseInt(str(sp.trade), 10);
   return {
-    range: pick(str(sp.range), ranges.map((r) => r.id), defaults.range),
-    mode: str(sp.mode) === "gross" ? "gross" : "net",
+    mode,
+    range: pick(str(sp.range), ["", ...ranges.map((r) => r.id)] as const, ""),
     q: str(sp.q).trim().slice(0, 32),
     side: pick(str(sp.side), ["", "long", "short"] as const, ""),
     result: pick(str(sp.result), ["", "win", "loss"] as const, ""),
@@ -52,6 +54,7 @@ export function tradesHref(f: TradeFilters, patch: Partial<TradeFilters> = {}) {
   const next = { ...f, ...patch };
   const params = new URLSearchParams();
   for (const key of Object.keys(defaults) as (keyof TradeFilters)[]) {
+    if (key === "mode") continue;
     const v = next[key];
     if (v !== null && v !== "" && v !== defaults[key]) params.set(key, String(v));
   }

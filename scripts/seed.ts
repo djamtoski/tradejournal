@@ -63,9 +63,13 @@ async function main() {
   await db.delete(schema.journalEntries);
   await db.delete(schema.accounts);
 
-  const [account] = await db
+  // Two accounts so account filters have something to filter.
+  const [futuresAccount, stocksAccount] = await db
     .insert(schema.accounts)
-    .values({ name: "Main", broker: "Sample" })
+    .values([
+      { name: "Futures (sample)", broker: "Sample" },
+      { name: "Stocks (sample)", broker: "Sample" },
+    ])
     .returning();
 
   const [setups, mistakes] = await db
@@ -125,7 +129,7 @@ async function main() {
       const [trade] = await db
         .insert(schema.trades)
         .values({
-          accountId: account.id,
+          accountId: inst.assetClass === "future" ? futuresAccount.id : stocksAccount.id,
           symbol: inst.symbol,
           assetClass: inst.assetClass,
           side,

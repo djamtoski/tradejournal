@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { filterHref, ranges, type Filters } from "@/lib/filters";
 
 export function PageHeader({
   title,
@@ -10,40 +9,10 @@ export function PageHeader({
   children?: React.ReactNode;
 }) {
   return (
-    <header className="sticky top-0 z-10 flex h-12 items-center justify-between border-b border-border bg-background/85 px-6 backdrop-blur">
-      <h1 className="text-[15px]">{title}</h1>
-      <div className="flex items-center gap-2">{children}</div>
+    <header className="sticky top-0 z-20 flex min-h-12 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border bg-background/85 px-6 py-2 backdrop-blur">
+      <h1 className="shrink-0 text-[15px]">{title}</h1>
+      <div className="flex flex-wrap items-center justify-end gap-2">{children}</div>
     </header>
-  );
-}
-
-/** Range + gross/net controls. Links, so filters live in the URL. */
-export function FilterBar({ filters, path = "/" }: { filters: Filters; path?: string }) {
-  return (
-    <>
-      <Segmented>
-        {ranges.map((r) => (
-          <Segment
-            key={r.id}
-            href={filterHref(filters, { range: r.id }, path)}
-            active={filters.range === r.id}
-          >
-            {r.label}
-          </Segment>
-        ))}
-      </Segmented>
-      <Segmented>
-        <Segment href={filterHref(filters, { mode: "net" }, path)} active={filters.mode === "net"}>
-          Net
-        </Segment>
-        <Segment
-          href={filterHref(filters, { mode: "gross" }, path)}
-          active={filters.mode === "gross"}
-        >
-          Gross
-        </Segment>
-      </Segmented>
-    </>
   );
 }
 

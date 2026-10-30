@@ -1,11 +1,13 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { FilterBar, PageHeader } from "@/components/shell/page-header";
+import { PageHeader } from "@/components/shell/page-header";
+import { FilterBar } from "@/components/shell/filter-bar";
 import { Kpi, Panel } from "@/components/dashboard/card";
-import { DailyPnlChart, EquityChart } from "@/components/dashboard/charts";
+import { EquityChart, PnlBarsChart } from "@/components/dashboard/charts";
 import { Breakdown } from "@/components/dashboard/breakdown";
-import { parseFilters, type Filters } from "@/lib/filters";
-import { getClosedTrades } from "@/lib/queries";
+import type { Filters } from "@/lib/filters";
+import { readFilters } from "@/lib/filters-server";
+import { getAccounts, getClosedTrades, getLastTradeDay } from "@/lib/queries";
 import {
   byHour,
   byMistake,
@@ -14,6 +16,7 @@ import {
   byTag,
   byWeekday,
   dailySeries,
+  groupedSeries,
   summarize,
 } from "@/lib/stats";
 import { formatPct, formatPnl, formatRatio, pnlTone } from "@/lib/format";
@@ -27,15 +30,25 @@ export default function DashboardPage({ searchParams }: PageProps<"/">) {
 }
 
 async function Dashboard({ searchParams }: { searchParams: PageProps<"/">["searchParams"] }) {
-  const filters = parseFilters(await searchParams);
-  const trades = await getClosedTrades(filters.range);
+  const filters = await readFilters(await searchParams);
+  const [trades, accounts, anyTrade] = await Promise.all([
+    getClosedTrades(filters.range, filters),
+    getAccounts(),
+    getLastTradeDay(),
+  ]);
 
   return (
     <>
       <PageHeader title="Dashboard">
-        <FilterBar filters={filters} />
+        <FilterBar filters={filters} accounts={accounts} showGrouping />
       </PageHeader>
-      {trades.length ? <Overview trades={trades} filters={filters} /> : <EmptyState />}
+      {trades.length ? (
+        <Overview trades={trades} filters={filters} />
+      ) : anyTrade ? (
+        <NoMatches />
+      ) : (
+        <EmptyState />
+      )}
     </>
   );
 }
@@ -50,6 +63,8 @@ function Overview({
   const { mode } = filters;
   const s = summarize(trades, mode);
   const series = dailySeries(trades, mode);
+  const periods = groupedSeries(trades, mode, filters.grouping);
+  const periodTitle = { day: "Daily P&L", week: "Weekly P&L", month: "Monthly P&L" }[filters.grouping];
   const sides = bySide(trades, mode);
   const long = sides.find((r) => r.key === "long");
   const short = sides.find((r) => r.key === "short");
@@ -105,9 +120,9 @@ function Overview({
         </Panel>
       </div>
 
-      <Panel title="Daily P&L">
+      <Panel title={periodTitle}>
         <div className="px-1 pb-2">
-          <DailyPnlChart data={series} />
+          <PnlBarsChart data={periods} />
         </div>
       </Panel>
 
@@ -159,6 +174,15 @@ function Stat({
         <span className={`num ${tone ?? "text-foreground"}`}>{value}</span>
         {hint && <span className="num text-[11px] text-faint">{hint}</span>}
       </dd>
+    </div>
+  );
+}
+
+function NoMatches() {
+  return (
+    <div className="mx-auto flex max-w-md flex-col items-center gap-2 px-6 py-24 text-center">
+      <h2 className="text-[17px]">No trades match these filters</h2>
+      <p className="text-muted-foreground">Try a longer range, or include more accounts or asset classes.</p>
     </div>
   );
 }

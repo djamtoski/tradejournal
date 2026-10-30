@@ -86,18 +86,43 @@ export function EquityChart({ data }: { data: Point[] }) {
   );
 }
 
-export function DailyPnlChart({ data }: { data: Point[] }) {
+type PeriodPoint = { key: string; label: string; pnl: number; equity: number; trades: number };
+
+function PeriodTooltip({ active, payload }: TooltipContentProps) {
+  if (!active || !payload?.length) return null;
+  const p = payload[0].payload as PeriodPoint;
+  return (
+    <div className="rounded-md border border-input bg-popover px-3 py-2 text-[12px] shadow-[0_8px_24px_rgb(0_0_0/0.4)]">
+      <div className="mb-1 text-muted-foreground">{p.label}</div>
+      <div className="num flex justify-between gap-6">
+        <span className="text-faint">P&L</span>
+        <span className={p.pnl >= 0 ? "text-profit" : "text-loss"}>{formatPnl(p.pnl)}</span>
+      </div>
+      <div className="num flex justify-between gap-6">
+        <span className="text-faint">Equity</span>
+        <span className="text-foreground">{formatPnl(p.equity)}</span>
+      </div>
+      <div className="num flex justify-between gap-6">
+        <span className="text-faint">Trades</span>
+        <span className="text-foreground">{p.trades}</span>
+      </div>
+    </div>
+  );
+}
+
+/** P&L bars per day, week or month (see groupedSeries). */
+export function PnlBarsChart({ data }: { data: PeriodPoint[] }) {
   return (
     <ResponsiveContainer width="100%" height={180}>
       <BarChart data={data} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
         {grid}
-        <XAxis dataKey="day" tickFormatter={shortDate} minTickGap={48} {...axis} />
+        <XAxis dataKey="label" minTickGap={48} {...axis} />
         <YAxis tickFormatter={compactMoney} width={56} {...axis} />
         <ReferenceLine y={0} stroke="rgb(255 255 255 / 0.1)" />
-        <Tooltip content={ChartTooltip} cursor={{ fill: "rgb(255 255 255 / 0.03)" }} />
-        <Bar dataKey="pnl" radius={[2, 2, 2, 2]} maxBarSize={14}>
+        <Tooltip content={PeriodTooltip} cursor={{ fill: "rgb(255 255 255 / 0.03)" }} />
+        <Bar dataKey="pnl" radius={[2, 2, 2, 2]} maxBarSize={data.length > 40 ? 14 : 32}>
           {data.map((d) => (
-            <Cell key={d.day} fill={d.pnl >= 0 ? "var(--profit)" : "var(--loss)"} />
+            <Cell key={d.key} fill={d.pnl >= 0 ? "var(--profit)" : "var(--loss)"} />
           ))}
         </Bar>
       </BarChart>

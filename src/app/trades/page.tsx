@@ -1,7 +1,9 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { ArrowDown, ArrowUp, Check, X } from "lucide-react";
-import { PageHeader, Segment, Segmented } from "@/components/shell/page-header";
+import { PageHeader } from "@/components/shell/page-header";
+import { FilterBar } from "@/components/shell/filter-bar";
+import { readFilters } from "@/lib/filters-server";
 import { Panel } from "@/components/dashboard/card";
 import { FilterRow } from "@/components/trades/filter-row";
 import { TradeEditor } from "@/components/trades/trade-editor";
@@ -11,8 +13,7 @@ import { parseDay } from "@/lib/dates";
 import { getSettings } from "@/lib/settings/queries";
 import { dayKey, formatDateTime, formatTime } from "@/lib/tz";
 import { cn } from "@/lib/utils";
-import { ranges } from "@/lib/filters";
-import { getAllTags, getClosedTrades, getTagGroups, getTradeDetail } from "@/lib/queries";
+import { getAccounts, getAllTags, getClosedTrades, getTagGroups, getTradeDetail } from "@/lib/queries";
 import { applyTradeFilters, parseTradeFilters, tradesHref, type SortKey, type TradeFilters } from "@/lib/trades/filters";
 import { pnlOf, summarize } from "@/lib/stats";
 import { formatPct, formatPnl, pnlTone } from "@/lib/format";
@@ -28,8 +29,15 @@ export default function TradesPage({ searchParams }: PageProps<"/trades">) {
 }
 
 async function Trades({ searchParams }: { searchParams: PageProps<"/trades">["searchParams"] }) {
-  const f = parseTradeFilters(await searchParams);
-  const [all, tags, { timezone }] = await Promise.all([getClosedTrades(f.range), getAllTags(), getSettings()]);
+  const sp = await searchParams;
+  const shared = await readFilters(sp);
+  const f = parseTradeFilters(sp, shared.mode);
+  const [all, tags, { timezone }, accounts] = await Promise.all([
+    getClosedTrades(shared.range, shared),
+    getAllTags(),
+    getSettings(),
+    getAccounts(),
+  ]);
   const trades = applyTradeFilters(all, f);
   const s = summarize(trades, f.mode);
   const pages = Math.max(1, Math.ceil(trades.length / PAGE_SIZE));
@@ -39,17 +47,7 @@ async function Trades({ searchParams }: { searchParams: PageProps<"/trades">["se
   return (
     <>
       <PageHeader title="Trades">
-        <Segmented>
-          {ranges.map((r) => (
-            <Segment key={r.id} href={tradesHref(f, { range: r.id, page: 1 })} active={f.range === r.id}>
-              {r.label}
-            </Segment>
-          ))}
-        </Segmented>
-        <Segmented>
-          <Segment href={tradesHref(f, { mode: "net" })} active={f.mode === "net"}>Net</Segment>
-          <Segment href={tradesHref(f, { mode: "gross" })} active={f.mode === "gross"}>Gross</Segment>
-        </Segmented>
+        <FilterBar filters={shared} accounts={accounts} />
       </PageHeader>
 
       <div className="mx-auto flex max-w-[1500px] flex-col gap-4 p-6">
