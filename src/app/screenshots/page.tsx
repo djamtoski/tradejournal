@@ -8,8 +8,10 @@ import { ScreenshotDetailsForm } from "@/components/screenshots/details-form";
 import { ScreenshotThumb } from "@/components/screenshots/thumb";
 import { ScreenshotUploader } from "@/components/screenshots/uploader";
 import { cn } from "@/lib/utils";
-import { addDays, dayKey, parseDay } from "@/lib/dates";
-import { getClosedTradesBetween, getLastTradeDate } from "@/lib/queries";
+import { parseDay } from "@/lib/dates";
+import { getClosedTradesBetween, getLastTradeDay } from "@/lib/queries";
+import { getSettings } from "@/lib/settings/queries";
+import { addDaysKey, dayKey, formatTime, startOfDay } from "@/lib/tz";
 import { getScreenshots } from "@/lib/screenshots/queries";
 import { formatPnl, pnlTone } from "@/lib/format";
 
@@ -28,22 +30,23 @@ async function Screenshots({ searchParams }: { searchParams: PageProps<"/screens
 
   const day = typeof sp.day === "string" && parseDay(sp.day) ? sp.day : null;
   const tradeId = Number(typeof sp.trade === "string" ? sp.trade : NaN);
-  const last = (await getLastTradeDate()) ?? new Date();
-  const defaultDay = day ?? dayKey(new Date());
+  const [lastDay, { timezone }] = await Promise.all([getLastTradeDay(), getSettings()]);
+  const today = dayKey(new Date(), timezone);
+  const defaultDay = day ?? today;
 
-  // Trades from the last 120 days (and the chosen day) to link uploads to.
-  const since = addDays(new Date(), -120);
+  // Trades from the 120 days before the earliest of: chosen day, latest trade, today.
+  const anchor = [day, lastDay, today].filter((d): d is string => !!d).sort()[0];
   const [items, recent] = await Promise.all([
     getScreenshots(day ? { day } : {}),
-    getClosedTradesBetween(since < last ? since : addDays(last, -120), null),
+    getClosedTradesBetween(startOfDay(addDaysKey(anchor, -120), timezone), null),
   ]);
   const tradeOptions = recent
     .slice()
     .reverse()
     .map((t) => ({
       id: t.id,
-      day: dayKey(t.openedAt),
-      label: `${t.openedAt.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })} ${t.symbol} ${t.side} · ${formatPnl(t.netPnl)}`,
+      day: t.day,
+      label: `${formatTime(t.openedAt, timezone)} ${t.symbol} ${t.side} · ${formatPnl(t.netPnl)}`,
     }));
 
   return (

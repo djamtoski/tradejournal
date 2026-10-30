@@ -12,6 +12,7 @@ import {
   type TooltipContentProps,
 } from "recharts";
 import { formatPnl } from "@/lib/format";
+import { formatTime } from "@/lib/tz";
 
 type Point = { t: number; equity: number; pnl: number; symbol: string };
 
@@ -23,11 +24,9 @@ const axis = {
   axisLine: false,
 } as const;
 
-const clock = (t: number) =>
-  new Date(t).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
-
-function Tip({ active, payload }: TooltipContentProps) {
+function Tip({ active, payload, timezone }: TooltipContentProps & { timezone: string }) {
   if (!active || !payload?.length) return null;
+  const clock = (t: number) => formatTime(new Date(t), timezone);
   const p = payload[0].payload as Point;
   return (
     <div className="rounded-md border border-input bg-popover px-3 py-2 text-[12px] shadow-[0_8px_24px_rgb(0_0_0/0.4)]">
@@ -49,7 +48,8 @@ function Tip({ active, payload }: TooltipContentProps) {
 }
 
 /** Running P&L through the day, stepping at each trade's close. */
-export function IntradayChart({ data }: { data: Point[] }) {
+export function IntradayChart({ data, timezone }: { data: Point[]; timezone: string }) {
+  const clock = (t: number) => formatTime(new Date(t), timezone);
   const final = data.at(-1)?.equity ?? 0;
   const color = final >= 0 ? "var(--profit)" : "var(--loss)";
   return (
@@ -77,7 +77,7 @@ export function IntradayChart({ data }: { data: Point[] }) {
           {...axis}
         />
         <ReferenceLine y={0} stroke="rgb(255 255 255 / 0.1)" />
-        <Tooltip content={Tip} cursor={{ stroke: "rgb(255 255 255 / 0.12)" }} />
+        <Tooltip content={(props) => <Tip {...props} timezone={timezone} />} cursor={{ stroke: "rgb(255 255 255 / 0.12)" }} />
         <Area
           type="stepAfter"
           dataKey="equity"

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Trash2 } from "lucide-react";
 import { deleteImport } from "@/lib/import/actions";
+import { formatDateTime } from "@/lib/tz";
 
 type Row = {
   id: number;
@@ -13,7 +14,7 @@ type Row = {
   accountName: string;
 };
 
-export function ImportHistory({ imports }: { imports: Row[] }) {
+export function ImportHistory({ imports, timezone }: { imports: Row[]; timezone: string }) {
   const [confirming, setConfirming] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -36,7 +37,7 @@ export function ImportHistory({ imports }: { imports: Row[] }) {
         {imports.map((imp) => (
           <tr key={imp.id} className="group h-10 border-b border-border last:border-0 hover:bg-muted/50">
             <td className="num px-4 text-muted-foreground">
-              {imp.createdAt.toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })}
+              {formatDateTime(imp.createdAt, timezone)}
             </td>
             <td className="max-w-[18rem] truncate px-4">
               {imp.fileName} <span className="text-faint">· {imp.broker}</span>

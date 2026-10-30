@@ -10,19 +10,17 @@ export type StatTrade = {
   netPnl: number;
   tags: string[];
   mistakes?: string[];
+  /** Trading-timezone calendar day the trade closed on ("YYYY-MM-DD"). */
+  day: string;
+  /** Trading-timezone hour (0–23) and weekday (0 = Sunday) the trade opened. */
+  openHour: number;
+  openWeekday: number;
 };
 
 export type PnlMode = "net" | "gross";
 
 export const pnlOf = (t: StatTrade, mode: PnlMode) =>
   mode === "net" ? t.netPnl : t.grossPnl;
-
-export function dayKey(d: Date) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
 
 export function summarize(trades: StatTrade[], mode: PnlMode) {
   const pnls = trades.map((t) => pnlOf(t, mode));
@@ -62,7 +60,7 @@ export function summarize(trades: StatTrade[], mode: PnlMode) {
 export function dailySeries(trades: StatTrade[], mode: PnlMode) {
   const byDay = new Map<string, { pnl: number; trades: number }>();
   for (const t of trades) {
-    const key = dayKey(t.closedAt);
+    const key = t.day;
     const entry = byDay.get(key) ?? { pnl: 0, trades: 0 };
     entry.pnl += pnlOf(t, mode);
     entry.trades += 1;
@@ -105,7 +103,7 @@ const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri"] as const;
 
 export function byWeekday(trades: StatTrade[], mode: PnlMode) {
   const rows = groupPnl(trades, mode, (t) => {
-    const d = t.openedAt.getDay();
+    const d = t.openWeekday;
     return d >= 1 && d <= 5 ? [weekdays[d - 1]] : [];
   });
   return weekdays.map(
@@ -114,7 +112,7 @@ export function byWeekday(trades: StatTrade[], mode: PnlMode) {
 }
 
 export function byHour(trades: StatTrade[], mode: PnlMode) {
-  return groupPnl(trades, mode, (t) => [String(t.openedAt.getHours()).padStart(2, "0")])
+  return groupPnl(trades, mode, (t) => [String(t.openHour).padStart(2, "0")])
     .sort((a, b) => a.key.localeCompare(b.key))
     .map((r) => ({ ...r, key: `${r.key}:00` }));
 }

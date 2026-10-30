@@ -16,6 +16,7 @@ import {
   type FieldId,
   type Mapping,
 } from "@/lib/import/parse";
+import { formatDateTime, offsetLabel } from "@/lib/tz";
 import { createAccount, importExecutions, type ImportResult } from "@/lib/import/actions";
 
 type Account = { id: number; name: string; broker: string | null };
@@ -23,7 +24,7 @@ type Step = "upload" | "map" | "preview" | "done";
 
 const MAX_FILE_MB = 20;
 
-export function ImportWizard({ accounts }: { accounts: Account[] }) {
+export function ImportWizard({ accounts, timezone }: { accounts: Account[]; timezone: string }) {
   const [step, setStep] = useState<Step>("upload");
   const [accountId, setAccountId] = useState<number | null>(accounts[0]?.id ?? null);
   const [broker, setBroker] = useState("");
@@ -40,9 +41,9 @@ export function ImportWizard({ accounts }: { accounts: Account[] }) {
   const parsed = useMemo(
     () =>
       step === "preview" || step === "done"
-        ? parseRows(rows, mapping, { assetClass, multiplier: Number(multiplier) || 1 })
+        ? parseRows(rows, mapping, { assetClass, multiplier: Number(multiplier) || 1, timezone })
         : null,
-    [step, rows, mapping, assetClass, multiplier],
+    [step, rows, mapping, assetClass, multiplier, timezone],
   );
 
   function onFile(files: File[]) {
@@ -135,6 +136,13 @@ export function ImportWizard({ accounts }: { accounts: Account[] }) {
               Defaults apply when the file has no asset class or multiplier column. Futures use the
               point value, for example 20 for NQ or 50 for ES.
             </p>
+            <p className="text-[12px] leading-relaxed text-faint">
+              Times in the file are read as{" "}
+              <span className="text-muted-foreground">
+                {timezone} ({offsetLabel(timezone)})
+              </span>
+              , your trading timezone. Change it in Settings.
+            </p>
           </div>
           <div className="flex flex-col gap-2">
             <FileUpload
@@ -193,6 +201,7 @@ export function ImportWizard({ accounts }: { accounts: Account[] }) {
 
       {step === "preview" && parsed && (
         <Preview
+          timezone={timezone}
           parsed={parsed}
           pending={pending}
           canSubmit={!!accountId && parsed.executions.length > 0}
@@ -373,12 +382,14 @@ function MappingFooter({
 }
 
 function Preview({
+  timezone,
   parsed,
   pending,
   canSubmit,
   onBack,
   onSubmit,
 }: {
+  timezone: string;
   parsed: ReturnType<typeof parseRows>;
   pending: boolean;
   canSubmit: boolean;
@@ -390,7 +401,8 @@ function Preview({
   const first = executions.reduce((m, e) => Math.min(m, e.executedAt), Infinity);
   const last = executions.reduce((m, e) => Math.max(m, e.executedAt), 0);
   const fees = executions.reduce((s, e) => s + e.fees, 0);
-  const fmtDate = (ms: number) => new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const fmtDate = (ms: number) =>
+    new Date(ms).toLocaleDateString("en-US", { timeZone: timezone, month: "short", day: "numeric", year: "numeric" });
 
   return (
     <div className="flex flex-col gap-4">
@@ -434,7 +446,7 @@ function Preview({
               {executions.slice(0, 200).map((e, i) => (
                 <tr key={i} className="h-9 border-b border-border last:border-0 hover:bg-muted/50">
                   <td className="num px-4 text-muted-foreground">
-                    {new Date(e.executedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })}
+                    {formatDateTime(new Date(e.executedAt), timezone, { second: "2-digit" })}
                   </td>
                   <td className="px-4 font-medium">{e.symbol}</td>
                   <td className={cn("px-4", e.action === "buy" ? "text-foreground" : "text-muted-foreground")}>

@@ -1,8 +1,13 @@
-/** Calendar helpers. Day keys are local-time "YYYY-MM-DD"; months are "YYYY-MM". */
+/**
+ * Calendar helpers for civil dates (no time zone): a Date here is just a label for a
+ * year/month/day built with local constructors. Day keys are "YYYY-MM-DD", months
+ * "YYYY-MM". Turning trade instants into days is done in ./tz with the trading timezone.
+ */
 
-import { dayKey } from "./stats";
-
-export { dayKey };
+/** Key of a civil Date built by these helpers (e.g. a calendar grid cell). */
+export function civilKey(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 export function monthKey(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;

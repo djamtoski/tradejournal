@@ -51,12 +51,19 @@ test("open position stays open", () => {
 });
 
 test("date formats", () => {
-  const iso = parseDateTime("2026-10-05 09:31:02");
-  assert.equal(iso, new Date(2026, 9, 5, 9, 31, 2).getTime());
-  assert.equal(parseDateTime("10/05/2026 1:05:00 PM"), new Date(2026, 9, 5, 13, 5).getTime());
-  assert.equal(parseDateTime("05.10.2026 09:31"), new Date(2026, 9, 5, 9, 31).getTime());
-  assert.equal(parseDateTime("09:31:02"), null);
-  assert.equal(parseDateTime("2026-02-30"), null);
+  assert.equal(parseDateTime("2026-10-05 09:31:02", "UTC"), Date.UTC(2026, 9, 5, 9, 31, 2));
+  assert.equal(parseDateTime("10/05/2026 1:05:00 PM", "UTC"), Date.UTC(2026, 9, 5, 13, 5));
+  assert.equal(parseDateTime("05.10.2026 09:31", "UTC"), Date.UTC(2026, 9, 5, 9, 31));
+  assert.equal(parseDateTime("09:31:02", "UTC"), null);
+  assert.equal(parseDateTime("2026-02-30", "UTC"), null);
+  assert.equal(parseDateTime("2026-10-05 25:00", "UTC"), null);
+});
+
+test("CSV times are read in the trading timezone", () => {
+  // 09:30 in New York is 13:30 UTC in summer and 14:30 UTC in winter.
+  assert.equal(parseDateTime("2026-10-05 09:30:00", "America/New_York"), Date.UTC(2026, 9, 5, 13, 30));
+  assert.equal(parseDateTime("2026-12-07 09:30:00", "America/New_York"), Date.UTC(2026, 11, 7, 14, 30));
+  assert.equal(parseDateTime("2026-10-05 09:30:00", "Europe/London"), Date.UTC(2026, 9, 5, 8, 30));
 });
 
 test("sides", () => {
@@ -84,7 +91,7 @@ test("rows parse with signed quantity and errors are reported", () => {
       { Time: "bad", Symbol: "aapl", Qty: "1", Price: "1" },
     ],
     { ...mapping, datetime: "Time" },
-    { assetClass: "stock", multiplier: 1 },
+    { assetClass: "stock", multiplier: 1, timezone: "UTC" },
   );
   assert.equal(executions.length, 2);
   assert.equal(executions[0].symbol, "AAPL");

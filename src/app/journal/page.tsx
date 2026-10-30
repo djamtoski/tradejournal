@@ -8,7 +8,9 @@ import { PageHeader } from "@/components/shell/page-header";
 import { Kpi, Panel } from "@/components/dashboard/card";
 import { JournalSearch } from "@/components/journal/journal-search";
 import { cn } from "@/lib/utils";
-import { dayKey, parseDay } from "@/lib/dates";
+import { parseDay } from "@/lib/dates";
+import { getSettings } from "@/lib/settings/queries";
+import { dayKey } from "@/lib/tz";
 import { getClosedTradesBetween } from "@/lib/queries";
 import { dailySeries } from "@/lib/stats";
 import { formatPct, formatPnl, pnlTone } from "@/lib/format";
@@ -26,9 +28,10 @@ async function Journal({ searchParams }: { searchParams: PageProps<"/journal">["
   const q = typeof sp.q === "string" ? sp.q.trim().slice(0, 100) : "";
   await connection();
 
-  const [entries, trades] = await Promise.all([
+  const [entries, trades, { timezone }] = await Promise.all([
     db.select().from(schema.journalEntries).orderBy(desc(schema.journalEntries.day)),
     getClosedTradesBetween(null, null),
+    getSettings(),
   ]);
   const days = new Map(dailySeries(trades, "net").map((d) => [d.day, d]));
   const written = entries.filter((e) => e.content.trim() || e.followedRules !== null);
@@ -45,7 +48,7 @@ async function Journal({ searchParams }: { searchParams: PageProps<"/journal">["
   const avgBroke = avg(broke);
   const coverage = days.size ? written.filter((e) => days.has(e.day)).length / days.size : 0;
 
-  const today = dayKey(new Date());
+  const today = dayKey(new Date(), timezone);
 
   return (
     <>

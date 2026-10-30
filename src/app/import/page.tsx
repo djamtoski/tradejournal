@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/shell/page-header";
 import { Panel } from "@/components/dashboard/card";
 import { ImportWizard } from "@/components/import/import-wizard";
 import { ImportHistory } from "@/components/import/import-history";
+import { getSettings } from "@/lib/settings/queries";
 
 export default function ImportPage() {
   return (
@@ -22,7 +23,7 @@ export default function ImportPage() {
 
 async function ImportContent() {
   await connection();
-  const [accounts, imports] = await Promise.all([
+  const [accounts, imports, { timezone }] = await Promise.all([
     db
       .select({ id: schema.accounts.id, name: schema.accounts.name, broker: schema.accounts.broker })
       .from(schema.accounts)
@@ -40,13 +41,14 @@ async function ImportContent() {
       .innerJoin(schema.accounts, eq(schema.accounts.id, schema.imports.accountId))
       .orderBy(desc(schema.imports.createdAt))
       .limit(50),
+    getSettings(),
   ]);
 
   return (
     <>
-      <ImportWizard accounts={accounts} />
+      <ImportWizard accounts={accounts} timezone={timezone} />
       <Panel title="Recent imports" meta="Deleting an import removes its fills and regroups trades">
-        <ImportHistory imports={imports} />
+        <ImportHistory imports={imports} timezone={timezone} />
       </Panel>
     </>
   );

@@ -4,6 +4,7 @@ import { and, eq, inArray, ne } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db, schema } from "@/db";
 import { removeImage } from "@/lib/screenshots/storage";
+import { isValidTimezone } from "@/lib/tz";
 
 // SQLite here doesn't enforce FK cascades, so every delete cleans up its children explicitly.
 
@@ -130,5 +131,14 @@ export async function eraseAllData(confirmation: string): Promise<Result> {
     await tx.delete(schema.accounts);
   });
   await Promise.all(files.map(removeImage));
+  return done();
+}
+
+export async function setTimezone(tz: string): Promise<Result> {
+  if (!isValidTimezone(tz)) return { ok: false, error: "Choose a timezone from the list." };
+  await db
+    .insert(schema.settings)
+    .values({ key: "timezone", value: tz })
+    .onConflictDoUpdate({ target: schema.settings.key, set: { value: tz } });
   return done();
 }

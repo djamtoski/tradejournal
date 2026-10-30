@@ -8,14 +8,16 @@ import { JournalEditor } from "@/components/daily/journal-editor";
 import { ScreenshotThumb } from "@/components/screenshots/thumb";
 import { getScreenshots } from "@/lib/screenshots/queries";
 import { cn } from "@/lib/utils";
-import { addDays, dayKey, monthKey, parseDay } from "@/lib/dates";
+import { monthKey, parseDay } from "@/lib/dates";
 import {
   getAdjacentTradingDay,
-  getClosedTradesBetween,
+  getClosedTradesInDays,
   getJournalEntry,
-  getLastTradeDate,
+  getLastTradeDay,
   type JournalTrade,
 } from "@/lib/queries";
+import { getSettings } from "@/lib/settings/queries";
+import { addDaysKey, dayKey, formatTime } from "@/lib/tz";
 import { pnlOf, summarize, type PnlMode } from "@/lib/stats";
 import { formatMoney, formatPct, formatPnl, pnlTone } from "@/lib/format";
 
@@ -27,21 +29,21 @@ export default function DailyPage({ searchParams }: PageProps<"/daily">) {
   );
 }
 
-const dayHref = (d: Date, mode: PnlMode) =>
-  `/daily?date=${dayKey(d)}${mode === "gross" ? "&mode=gross" : ""}`;
+const dayHref = (key: string, mode: PnlMode) =>
+  `/daily?date=${key}${mode === "gross" ? "&mode=gross" : ""}`;
 
 async function Daily({ searchParams }: { searchParams: PageProps<"/daily">["searchParams"] }) {
   const sp = await searchParams;
   const mode: PnlMode = sp.mode === "gross" ? "gross" : "net";
-  const requested = parseDay(typeof sp.date === "string" ? sp.date : undefined);
-  const last = await getLastTradeDate();
-  const day = requested ?? (last ? new Date(last.getFullYear(), last.getMonth(), last.getDate()) : new Date());
-  const key = dayKey(day);
+  const requested = typeof sp.date === "string" && parseDay(sp.date) ? sp.date : null;
+  const [lastDay, { timezone }] = await Promise.all([getLastTradeDay(), getSettings()]);
+  const key = requested ?? lastDay ?? dayKey(new Date(), timezone);
+  const day = parseDay(key)!; // civil date, for labels only
 
   const [trades, prev, next, entry, shots] = await Promise.all([
-    getClosedTradesBetween(day, addDays(day, 1)),
-    getAdjacentTradingDay(day, "prev"),
-    getAdjacentTradingDay(day, "next"),
+    getClosedTradesInDays(key, addDaysKey(key, 1)),
+    getAdjacentTradingDay(key, "prev"),
+    getAdjacentTradingDay(key, "next"),
     getJournalEntry(key),
     getScreenshots({ day: key }),
   ]);
@@ -76,7 +78,7 @@ async function Daily({ searchParams }: { searchParams: PageProps<"/daily">["sear
       <div className="mx-auto grid max-w-[1400px] gap-4 p-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="flex min-w-0 flex-col gap-4">
           {trades.length ? (
-            <DayDetail trades={trades} mode={mode} />
+            <DayDetail trades={trades} mode={mode} timezone={timezone} />
           ) : (
             <Panel>
               <div className="flex flex-col items-center gap-2 px-6 py-16 text-center">
@@ -123,7 +125,7 @@ async function Daily({ searchParams }: { searchParams: PageProps<"/daily">["sear
   );
 }
 
-function DayDetail({ trades, mode }: { trades: JournalTrade[]; mode: PnlMode }) {
+function DayDetail({ trades, mode, timezone }: { trades: JournalTrade[]; mode: PnlMode; timezone: string }) {
   const s = summarize(trades, mode);
   const volume = trades.reduce((v, t) => v + t.quantity * 2, 0);
   const fees = trades.reduce((v, t) => v + t.fees, 0);
@@ -151,12 +153,12 @@ function DayDetail({ trades, mode }: { trades: JournalTrade[]; mode: PnlMode }) 
 
       <Panel title="Intraday P&L">
         <div className="px-1 pb-2">
-          <IntradayChart data={curve} />
+          <IntradayChart data={curve} timezone={timezone} />
         </div>
       </Panel>
 
       <Panel title="Trades" meta={`${trades.length}`}>
-        <TradesTable trades={trades} mode={mode} />
+        <TradesTable trades={trades} mode={mode} timezone={timezone} />
       </Panel>
 
       <Panel title="Blotter" meta="By symbol">
@@ -178,8 +180,6 @@ function intradayCurve(trades: JournalTrade[], mode: PnlMode) {
   return points;
 }
 
-const clock = (d: Date) => d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
-
 function duration(a: Date, b: Date) {
   const mins = Math.round((b.getTime() - a.getTime()) / 60_000);
   if (mins < 1) return "<1m";
@@ -190,7 +190,7 @@ function duration(a: Date, b: Date) {
 const price = (n: number | null) =>
   n === null ? "—" : n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
 
-function TradesTable({ trades, mode }: { trades: JournalTrade[]; mode: PnlMode }) {
+function TradesTable({ trades, mode, timezone }: { trades: JournalTrade[]; mode: PnlMode; timezone: string }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[760px] text-[13px]">
@@ -213,7 +213,7 @@ function TradesTable({ trades, mode }: { trades: JournalTrade[]; mode: PnlMode }
             return (
               <tr key={t.id} className="h-10 border-b border-border last:border-0 hover:bg-muted/50">
                 <td className="num whitespace-nowrap px-4 text-muted-foreground">
-                  {clock(t.openedAt)} <span className="text-faint">· {duration(t.openedAt, t.closedAt)}</span>
+                  {formatTime(t.openedAt, timezone)} <span className="text-faint">· {duration(t.openedAt, t.closedAt)}</span>
                 </td>
                 <td className="px-2 font-medium">{t.symbol}</td>
                 <td className="px-2">

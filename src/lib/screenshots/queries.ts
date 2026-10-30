@@ -1,7 +1,8 @@
 import { desc, eq, inArray, or } from "drizzle-orm";
 import { connection } from "next/server";
 import { db, schema } from "@/db";
-import { dayKey } from "@/lib/dates";
+import { getSettings } from "@/lib/settings/queries";
+import { addDaysKey, dayKey, startOfDay } from "@/lib/tz";
 import { parseAnnotations } from "./annotations";
 
 export type ScreenshotItem = {
@@ -18,14 +19,14 @@ export type ScreenshotItem = {
 export async function getScreenshots(opts: { day?: string; tradeId?: number; id?: number } = {}) {
   await connection();
   const { screenshots, trades } = schema;
+  const { timezone } = await getSettings();
 
   let where;
   if (opts.id) where = eq(screenshots.id, opts.id);
   else if (opts.tradeId) where = eq(screenshots.tradeId, opts.tradeId);
   else if (opts.day) {
-    const [y, m, d] = opts.day.split("-").map(Number);
-    const start = new Date(y, m - 1, d);
-    const end = new Date(y, m - 1, d + 1);
+    const start = startOfDay(opts.day, timezone);
+    const end = startOfDay(addDaysKey(opts.day, 1), timezone);
     const dayTrades = (
       await db.select({ id: trades.id, closedAt: trades.closedAt, openedAt: trades.openedAt }).from(trades)
     )
@@ -39,7 +40,14 @@ export async function getScreenshots(opts: { day?: string; tradeId?: number; id?
   const rows = await db
     .select({
       s: screenshots,
-      t: { id: trades.id, symbol: trades.symbol, side: trades.side, netPnl: trades.netPnl, openedAt: trades.openedAt },
+      t: {
+        id: trades.id,
+        symbol: trades.symbol,
+        side: trades.side,
+        netPnl: trades.netPnl,
+        openedAt: trades.openedAt,
+        closedAt: trades.closedAt,
+      },
     })
     .from(screenshots)
     .leftJoin(trades, eq(trades.id, screenshots.tradeId))
@@ -50,7 +58,7 @@ export async function getScreenshots(opts: { day?: string; tradeId?: number; id?
     id: s.id,
     src: `/api/screenshots/${s.id}`,
     caption: s.caption,
-    day: s.day ?? (t?.openedAt ? dayKey(t.openedAt) : null),
+    day: s.day ?? (t?.openedAt ? dayKey(t.closedAt ?? t.openedAt, timezone) : null),
     createdAt: s.createdAt,
     annotations: parseAnnotations(s.annotations),
     trade: t?.id ? (t as ScreenshotItem["trade"]) : null,

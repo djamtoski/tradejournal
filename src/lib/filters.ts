@@ -1,4 +1,5 @@
 import type { PnlMode } from "./stats";
+import { addDaysKey, dayKey, startOfDay } from "./tz";
 
 export const ranges = [
   { id: "30d", label: "30D" },
@@ -19,18 +20,16 @@ export function parseFilters(sp: SearchParams): Filters {
   return { range, mode };
 }
 
-export function rangeStart(range: RangeId, now = new Date()): Date | null {
-  const d = new Date(now);
-  d.setHours(0, 0, 0, 0);
+/** Start instant of a range, counted in whole days of the trading timezone. */
+export function rangeStart(range: RangeId, tz: string, now = new Date()): Date | null {
+  const today = dayKey(now, tz);
   switch (range) {
     case "30d":
-      d.setDate(d.getDate() - 30);
-      return d;
+      return startOfDay(addDaysKey(today, -30), tz);
     case "90d":
-      d.setDate(d.getDate() - 90);
-      return d;
+      return startOfDay(addDaysKey(today, -90), tz);
     case "ytd":
-      return new Date(d.getFullYear(), 0, 1);
+      return startOfDay(`${today.slice(0, 4)}-01-01`, tz);
     case "all":
       return null;
   }

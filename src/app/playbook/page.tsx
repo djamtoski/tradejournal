@@ -11,6 +11,8 @@ import { cn } from "@/lib/utils";
 import { createPlaybook } from "@/lib/playbook/actions";
 import { getAllTags, getClosedTradesBetween, isMistakeGroup } from "@/lib/queries";
 import { summarize } from "@/lib/stats";
+import { getSettings } from "@/lib/settings/queries";
+import { addDaysKey, dayKey, startOfDay } from "@/lib/tz";
 import { formatPct, formatPnl, formatRatio, pnlTone } from "@/lib/format";
 
 export default function PlaybookPage({ searchParams }: PageProps<"/playbook">) {
@@ -106,9 +108,9 @@ async function Playbook({ searchParams }: { searchParams: PageProps<"/playbook">
 
 /** All-time and last-30-day results for trades tagged with this setup. */
 async function SetupStats({ tag }: { tag: string }) {
-  const all = (await getClosedTradesBetween(null, null)).filter((t) => t.tags.includes(tag));
-  const since = new Date();
-  since.setDate(since.getDate() - 30);
+  const [rows, { timezone }] = await Promise.all([getClosedTradesBetween(null, null), getSettings()]);
+  const all = rows.filter((t) => t.tags.includes(tag));
+  const since = startOfDay(addDaysKey(dayKey(new Date(), timezone), -30), timezone);
   const recent = all.filter((t) => t.closedAt >= since);
   const s = summarize(all, "net");
   const r = summarize(recent, "net");

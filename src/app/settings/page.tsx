@@ -6,6 +6,8 @@ import { db, schema } from "@/db";
 import { PageHeader } from "@/components/shell/page-header";
 import { Panel } from "@/components/dashboard/card";
 import { AccountsSection, DangerZone, TagsSection } from "@/components/settings/sections";
+import { TimezoneSelect } from "@/components/settings/timezone-select";
+import { getSettings } from "@/lib/settings/queries";
 
 export default function SettingsPage() {
   return (
@@ -22,7 +24,7 @@ export default function SettingsPage() {
 
 async function Settings() {
   await connection();
-  const [accounts, tradeCounts, importCounts, groups, tags, tagUses, totals] = await Promise.all([
+  const [accounts, tradeCounts, importCounts, groups, tags, tagUses, totals, settings] = await Promise.all([
     db.select().from(schema.accounts).orderBy(asc(schema.accounts.name)),
     db.select({ id: schema.trades.accountId, n: count() }).from(schema.trades).groupBy(schema.trades.accountId),
     db.select({ id: schema.imports.accountId, n: count() }).from(schema.imports).groupBy(schema.imports.accountId),
@@ -34,6 +36,7 @@ async function Settings() {
       db.select({ n: count() }).from(schema.journalEntries),
       db.select({ n: count() }).from(schema.playbooks),
     ]),
+    getSettings(),
   ]);
   const by = (rows: { id: number; n: number }[]) => new Map(rows.map((r) => [r.id, r.n]));
   const trades = by(tradeCounts);
@@ -43,6 +46,10 @@ async function Settings() {
 
   return (
     <>
+      <Section title="Trading timezone">
+        <TimezoneSelect value={settings.timezone} zones={Intl.supportedValuesOf("timeZone")} />
+      </Section>
+
       <Section title="Accounts" description="Rename accounts or delete one with all of its trades and imports.">
         <AccountsSection
           accounts={accounts.map((a) => ({
