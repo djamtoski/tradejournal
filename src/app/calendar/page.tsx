@@ -50,7 +50,12 @@ async function Calendar({ searchParams }: { searchParams: PageProps<"/calendar">
 
   const start = view === "year" ? new Date(month.getFullYear(), 0, 1) : month;
   const end = view === "year" ? new Date(month.getFullYear() + 1, 0, 1) : addMonths(month, 1);
-  const [trades, goals] = await Promise.all([getClosedTradesInDays(civilKey(start), civilKey(end), filters), getGoals()]);
+  const mondays = monthWeeks(month).map((w) => weekStart(civilKey(w.find(Boolean)!)));
+  const [trades, goals, weekReviews] = await Promise.all([
+    getClosedTradesInDays(civilKey(start), civilKey(end), filters),
+    getGoals(),
+    view === "month" ? weekReviewSet(mondays) : new Set<string>(),
+  ]);
   const days = new Map(dailySeries(trades, mode).map((d) => [d.day, d]));
   // Limits apply to all accounts combined, so check them against unfiltered trades.
   const breaches = goals.some((g) => g.active && isLimit(g))
@@ -80,14 +85,14 @@ async function Calendar({ searchParams }: { searchParams: PageProps<"/calendar">
         <FilterBar filters={filters} accounts={accounts} showRange={false} />
       </PageHeader>
 
-      <div className="mx-auto grid max-w-[1400px] gap-4 p-6 xl:grid-cols-[minmax(0,1fr)_280px]">
+      <div className="mx-auto grid max-w-[1400px] gap-4 p-4 md:p-6 xl:grid-cols-[minmax(0,1fr)_280px]">
         {view === "month" ? (
           <MonthGrid
             month={month}
             days={days}
             today={today}
             breaches={breaches}
-            weekReviews={await weekReviewSet(monthWeeks(month).map((w) => weekStart(civilKey(w.find(Boolean)!))))}
+            weekReviews={weekReviews}
           />
         ) : (
           <YearGrid year={month.getFullYear()} days={days} state={state} />
@@ -141,7 +146,7 @@ function MonthGrid({
               const cell = (
                 <>
                   <span className="flex items-center justify-between">
-                    <span className={cn("num text-[12px]", key === today ? "text-primary" : "text-faint")}>
+                    <span className={cn("num text-[12px]", key === today ? "text-primary-text" : "text-faint")}>
                       {date.getDate()}
                     </span>
                     {broke && (
@@ -284,7 +289,7 @@ function CalendarSkeleton() {
   return (
     <>
       <div className="h-12 border-b border-border" />
-      <div className="mx-auto max-w-[1400px] p-6">
+      <div className="mx-auto max-w-[1400px] p-4 md:p-6">
         <div className="h-[560px] animate-pulse rounded-[10px] border border-border bg-card" />
       </div>
     </>

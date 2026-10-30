@@ -15,7 +15,7 @@ export default function ImportPage() {
   return (
     <>
       <PageHeader title="Import" />
-      <div className="mx-auto flex max-w-[1100px] flex-col gap-6 p-6">
+      <div className="mx-auto flex max-w-[1100px] flex-col gap-6 p-4 md:p-6">
         <Suspense fallback={<div className="h-[300px] animate-pulse rounded-[10px] border border-border bg-card" />}>
           <ImportContent />
         </Suspense>

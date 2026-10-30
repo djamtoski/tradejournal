@@ -58,7 +58,7 @@ async function Screenshots({ searchParams }: { searchParams: PageProps<"/screens
           </Link>
         )}
       </PageHeader>
-      <div className="mx-auto flex max-w-[1300px] flex-col gap-6 p-6">
+      <div className="mx-auto flex max-w-[1300px] flex-col gap-6 p-4 md:p-6">
         <Panel title="Add a screenshot">
           <div className="px-4 pb-4 pt-2">
             <ScreenshotUploader
@@ -107,7 +107,7 @@ async function Detail({ id }: { id: number }) {
           <ArrowLeft className="size-3.5" strokeWidth={1.5} /> All screenshots
         </Link>
       </PageHeader>
-      <div className="mx-auto grid max-w-[1500px] items-start gap-6 p-6 xl:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="mx-auto grid max-w-[1500px] items-start gap-6 p-4 md:p-6 xl:grid-cols-[minmax(0,1fr)_300px]">
         <Annotator
           key={item.id}
           id={item.id}
@@ -162,7 +162,7 @@ function Skeleton() {
   return (
     <>
       <div className="h-12 border-b border-border" />
-      <div className="mx-auto max-w-[1300px] p-6">
+      <div className="mx-auto max-w-[1300px] p-4 md:p-6">
         <div className="h-[280px] animate-pulse rounded-[10px] border border-border bg-card" />
       </div>
     </>

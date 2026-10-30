@@ -53,40 +53,42 @@ export function IntradayChart({ data, timezone }: { data: Point[]; timezone: str
   const final = data.at(-1)?.equity ?? 0;
   const color = final >= 0 ? "var(--profit)" : "var(--loss)";
   return (
-    <ResponsiveContainer width="100%" height={200}>
-      <AreaChart data={data} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
-        <defs>
-          <linearGradient id="dayFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity={0.14} />
-            <stop offset="100%" stopColor={color} stopOpacity={0} />
-          </linearGradient>
-        </defs>
-        <CartesianGrid vertical={false} stroke="rgb(255 255 255 / 0.04)" />
-        <XAxis
-          dataKey="t"
-          type="number"
-          scale="time"
-          domain={["dataMin", "dataMax"]}
-          tickFormatter={clock}
-          minTickGap={48}
-          {...axis}
-        />
-        <YAxis
-          tickFormatter={(n: number) => formatPnl(n)}
-          width={64}
-          {...axis}
-        />
-        <ReferenceLine y={0} stroke="rgb(255 255 255 / 0.1)" />
-        <Tooltip content={(props) => <Tip {...props} timezone={timezone} />} cursor={{ stroke: "rgb(255 255 255 / 0.12)" }} />
-        <Area
-          type="stepAfter"
-          dataKey="equity"
-          stroke={color}
-          strokeWidth={1.5}
-          fill="url(#dayFill)"
-          activeDot={{ r: 3, strokeWidth: 0, fill: color }}
-        />
-      </AreaChart>
-    </ResponsiveContainer>
+    <div role="img" aria-label={`Intraday P&L across ${data.length - 1} trades, ending the day at ${formatPnl(final)}`}>
+      <ResponsiveContainer width="100%" height={200}>
+        <AreaChart data={data} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
+          <defs>
+            <linearGradient id="dayFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity={0.14} />
+              <stop offset="100%" stopColor={color} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid vertical={false} stroke="rgb(255 255 255 / 0.04)" />
+          <XAxis
+            dataKey="t"
+            type="number"
+            scale="time"
+            domain={["dataMin", "dataMax"]}
+            tickFormatter={clock}
+            minTickGap={48}
+            {...axis}
+          />
+          <YAxis
+            tickFormatter={(n: number) => formatPnl(n)}
+            width={64}
+            {...axis}
+          />
+          <ReferenceLine y={0} stroke="rgb(255 255 255 / 0.1)" />
+          <Tooltip content={(props) => <Tip {...props} timezone={timezone} />} cursor={{ stroke: "rgb(255 255 255 / 0.12)" }} />
+          <Area
+            type="stepAfter"
+            dataKey="equity"
+            stroke={color}
+            strokeWidth={1.5}
+            fill="url(#dayFill)"
+            activeDot={{ r: 3, strokeWidth: 0, fill: color }}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
   );
 }

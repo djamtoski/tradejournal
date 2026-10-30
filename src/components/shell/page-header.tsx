@@ -9,7 +9,7 @@ export function PageHeader({
   children?: React.ReactNode;
 }) {
   return (
-    <header className="sticky top-0 z-20 flex min-h-12 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border bg-background/85 px-6 py-2 backdrop-blur">
+    <header className="sticky top-0 z-20 flex min-h-12 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border bg-background/85 px-4 py-2 backdrop-blur md:px-6">
       <h1 className="shrink-0 text-[15px]">{title}</h1>
       <div className="flex flex-wrap items-center justify-end gap-2">{children}</div>
     </header>
@@ -37,6 +37,7 @@ export function Segment({
     <Link
       href={href}
       scroll={false}
+      aria-current={active ? "page" : undefined}
       className={cn(
         "num flex h-full items-center rounded-[5px] px-2.5 text-[12px] transition-colors duration-150",
         active

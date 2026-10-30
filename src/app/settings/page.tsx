@@ -15,7 +15,7 @@ export default function SettingsPage() {
   return (
     <>
       <PageHeader title="Settings" />
-      <div className="mx-auto flex max-w-[760px] flex-col gap-6 p-6">
+      <div className="mx-auto flex max-w-[760px] flex-col gap-6 p-4 md:p-6">
         <Suspense fallback={<div className="h-[400px] animate-pulse rounded-[10px] border border-border bg-card" />}>
           <Settings />
         </Suspense>

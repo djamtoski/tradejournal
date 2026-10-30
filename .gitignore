@@ -42,3 +42,10 @@ next-env.d.ts
 
 # local database
 /data/
+
+# Third-party agent skills installed with `npx skills add` stay local:
+# they ship executables and no licence file, and this repo is public.
+/.agents/
+/.claude/skills/impeccable
+/.claude/skills/best-practices
+/skills-lock.json

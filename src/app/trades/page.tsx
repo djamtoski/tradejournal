@@ -56,7 +56,7 @@ async function Trades({ searchParams }: { searchParams: PageProps<"/trades">["se
         {accounts.length > 0 && <TradeFormDialog accounts={accounts} defaultOpenedAt={nowLocal} />}
       </PageHeader>
 
-      <div className="mx-auto flex max-w-[1500px] flex-col gap-4 p-6">
+      <div className="mx-auto flex max-w-[1500px] flex-col gap-4 p-4 md:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <FilterRow filters={f} tags={tags.map((t) => ({ name: t.name, group: t.group }))} />
           <p className="num text-[12px] text-faint">
@@ -193,7 +193,7 @@ function TradeTable({
                 <td className="num px-2 text-faint">{hold(t.openedAt, t.closedAt)}</td>
                 <td className="px-2 font-medium">{t.symbol}</td>
                 <td className="px-2">
-                  <span className={cn("rounded px-1.5 py-0.5 text-[11px]", t.side === "long" ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground")}>
+                  <span className={cn("rounded px-1.5 py-0.5 text-[11px]", t.side === "long" ? "bg-primary/15 text-primary-text" : "bg-muted text-muted-foreground")}>
                     {t.side === "long" ? "Long" : "Short"}
                   </span>
                 </td>
@@ -266,7 +266,7 @@ async function TradeDetail({
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
             <span className="font-heading text-[16px] font-semibold tracking-tight">{t.symbol}</span>
-            <span className={cn("rounded px-1.5 py-0.5 text-[11px]", t.side === "long" ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground")}>
+            <span className={cn("rounded px-1.5 py-0.5 text-[11px]", t.side === "long" ? "bg-primary/15 text-primary-text" : "bg-muted text-muted-foreground")}>
               {t.side === "long" ? "Long" : "Short"}
             </span>
           </div>
@@ -430,7 +430,7 @@ function OpenPositions({
                 </td>
                 <td className="px-2 font-medium">{t.symbol}</td>
                 <td className="px-2">
-                  <span className={cn("rounded px-1.5 py-0.5 text-[11px]", t.side === "long" ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground")}>
+                  <span className={cn("rounded px-1.5 py-0.5 text-[11px]", t.side === "long" ? "bg-primary/15 text-primary-text" : "bg-muted text-muted-foreground")}>
                     {t.side === "long" ? "Long" : "Short"}
                   </span>
                 </td>
@@ -451,7 +451,7 @@ function TradesSkeleton() {
   return (
     <>
       <div className="h-12 border-b border-border" />
-      <div className="mx-auto max-w-[1500px] p-6">
+      <div className="mx-auto max-w-[1500px] p-4 md:p-6">
         <div className="h-[600px] animate-pulse rounded-[10px] border border-border bg-card" />
       </div>
     </>
