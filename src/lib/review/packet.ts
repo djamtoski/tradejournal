@@ -53,10 +53,12 @@ function summaryLines(trades: JournalTrade[]) {
   const fees = trades.reduce((t, x) => t + x.fees, 0);
   return [
     `- Net P&L ${formatPnl(s.total, true)} (gross ${formatPnl(gross, true)}, fees ${formatPnl(-fees, true)})`,
-    `- ${s.count} trades over ${s.tradingDays} trading ${s.tradingDays === 1 ? "day" : "days"}: ${s.wins} ${s.wins === 1 ? "win" : "wins"}, ${s.losses} ${s.losses === 1 ? "loss" : "losses"}${s.breakevens ? `, ${s.breakevens} break-even` : ""}, win rate ${formatPct(s.winRate, 0)}`,
-    `- Profit factor ${formatRatio(s.profitFactor)}, average win ${formatPnl(s.avgWin)}, average loss ${formatPnl(-s.avgLoss)}`,
+    `- ${s.count} ${s.count === 1 ? "trade" : "trades"} over ${s.tradingDays} trading ${s.tradingDays === 1 ? "day" : "days"}: ${s.wins} ${s.wins === 1 ? "win" : "wins"}, ${s.losses} ${s.losses === 1 ? "loss" : "losses"}${s.breakevens ? `, ${s.breakevens} break-even` : ""}${s.wins + s.losses ? `, win rate ${formatPct(s.winRate, 0)}` : ", no wins or losses yet"}`,
+    s.wins + s.losses
+      ? `- Profit factor ${formatRatio(s.profitFactor)}, average win ${formatPnl(s.avgWin)}, average loss ${formatPnl(-s.avgLoss)}`
+      : "- Profit factor, average win and average loss: not meaningful yet (no wins or losses)",
     s.rCount
-      ? `- R: ${formatR(s.totalR)} total, ${formatR(s.avgR, 2)} average over ${s.rCount} trades with a risk`
+      ? `- R: ${formatR(s.totalR)} total, ${formatR(s.avgR, 2)} average over ${s.rCount} ${s.rCount === 1 ? "trade" : "trades"} with a risk`
       : "- R: no trades have a stop or a default 1R, so there are no R-multiples",
   ];
 }
@@ -161,7 +163,8 @@ export function buildPacket(input: PacketInput): string {
 
   // Rules documents without a setup tag always apply; setup playbooks only when that setup was traded.
   const traded = new Set(trades.flatMap((t) => t.tags));
-  const books = input.playbooks.filter((p) => !p.tag || traded.has(p.tag));
+  // Empty entries (e.g. a new "Untitled setup") carry nothing to check against.
+  const books = input.playbooks.filter((p) => p.content.trim() && (!p.tag || traded.has(p.tag)));
   out.push("## Playbook", "");
   if (!books.length) out.push("No playbook entries apply.");
   for (const p of books) out.push(`### ${p.title}${p.tag ? ` (setup: ${p.tag})` : ""}`, "", clip(p.content.trim(), PLAYBOOK_CHARS), "");
