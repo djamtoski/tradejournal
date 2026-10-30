@@ -18,6 +18,9 @@ export type StatTrade = {
   openWeekday: number;
   /** Dollars at risk (1R) for this trade, or null when neither a stop nor an account default is set. */
   risk?: number | null;
+  assetClass?: string;
+  entryPrice?: number;
+  followedRules?: boolean | null;
 };
 
 export type PnlMode = "net" | "gross";
@@ -212,5 +215,86 @@ export const byMistake = (trades: StatTrade[], mode: PnlMode) =>
 
 export const bySide = (trades: StatTrade[], mode: PnlMode) =>
   groupPnl(trades, mode, (t) => [t.side]);
+
+/** Keeps a fixed bucket order and fills empty buckets, so charts don't jump around. */
+function inOrder<K extends string>(rows: ReturnType<typeof groupPnl<K>>, order: readonly K[]) {
+  return order.map((key) => rows.find((r) => r.key === key) ?? { key, pnl: 0, trades: 0, winRate: 0 });
+}
+
+const holdBuckets = ["< 2m", "2–5m", "5–15m", "15–30m", "30–60m", "1–2h", "2h+"] as const;
+
+export function byHoldTime(trades: StatTrade[], mode: PnlMode) {
+  const rows = groupPnl(trades, mode, (t) => {
+    const mins = (t.closedAt.getTime() - t.openedAt.getTime()) / 60_000;
+    const i = mins < 2 ? 0 : mins < 5 ? 1 : mins < 15 ? 2 : mins < 30 ? 3 : mins < 60 ? 4 : mins < 120 ? 5 : 6;
+    return [holdBuckets[i]];
+  });
+  return inOrder(rows, holdBuckets);
+}
+
+const perDayBuckets = ["1 trade", "2 trades", "3 trades", "4 trades", "5+ trades"] as const;
+
+/** P&L of trades grouped by how many trades were taken that day: does overtrading cost you? */
+export function byTradesPerDay(trades: StatTrade[], mode: PnlMode) {
+  const perDay = new Map<string, number>();
+  for (const t of trades) perDay.set(t.day, (perDay.get(t.day) ?? 0) + 1);
+  const rows = groupPnl(trades, mode, (t) => [perDayBuckets[Math.min(perDay.get(t.day)!, 5) - 1]]);
+  return inOrder(rows, perDayBuckets);
+}
+
+const monthWeekBuckets = ["Days 1–7", "Days 8–14", "Days 15–21", "Days 22–31"] as const;
+
+export function byWeekOfMonth(trades: StatTrade[], mode: PnlMode) {
+  const rows = groupPnl(trades, mode, (t) => {
+    const d = Number(t.day.slice(8, 10));
+    return [monthWeekBuckets[d <= 7 ? 0 : d <= 14 ? 1 : d <= 21 ? 2 : 3]];
+  });
+  return inOrder(rows, monthWeekBuckets);
+}
+
+const ruleBuckets = ["Followed rules", "Broke rules", "Not rated"] as const;
+
+export function byRules(trades: StatTrade[], mode: PnlMode) {
+  const rows = groupPnl(trades, mode, (t) => [
+    t.followedRules === true ? ruleBuckets[0] : t.followedRules === false ? ruleBuckets[1] : ruleBuckets[2],
+  ]);
+  return inOrder(rows, ruleBuckets);
+}
+
+const assetLabels: Record<string, string> = { stock: "Stocks", future: "Futures", forex: "Forex", option: "Options" };
+
+export const byAssetClass = (trades: StatTrade[], mode: PnlMode) =>
+  groupPnl(trades, mode, (t) => [assetLabels[t.assetClass ?? ""] ?? "Other"]).sort((a, b) => b.pnl - a.pnl);
+
+const priceBuckets = ["< $10", "$10–50", "$50–100", "$100–250", "$250–500", "$500–1k", "$1k–10k", "$10k+"] as const;
+
+/** Entry price bands. Futures quote in points (e.g. NQ 20,000) so they land in the top bands. */
+export function byPriceBucket(trades: StatTrade[], mode: PnlMode) {
+  const rows = groupPnl(trades, mode, (t) => {
+    const p = t.entryPrice ?? 0;
+    const i = p < 10 ? 0 : p < 50 ? 1 : p < 100 ? 2 : p < 250 ? 3 : p < 500 ? 4 : p < 1000 ? 5 : p < 10_000 ? 6 : 7;
+    return [priceBuckets[i]];
+  });
+  return priceBuckets.flatMap((key) => rows.filter((r) => r.key === key));
+}
+
+/** Average and total R per setup tag, counting only trades that have a risk. */
+export function rByTag(trades: StatTrade[], mode: PnlMode) {
+  const groups = new Map<string, { totalR: number; count: number; wins: number }>();
+  for (const t of trades) {
+    const r = rOf(t, mode);
+    if (r === null) continue;
+    for (const tag of t.tags) {
+      const g = groups.get(tag) ?? { totalR: 0, count: 0, wins: 0 };
+      g.totalR += r;
+      g.count += 1;
+      if (r > 0) g.wins += 1;
+      groups.set(tag, g);
+    }
+  }
+  return [...groups.entries()]
+    .map(([key, g]) => ({ key, trades: g.count, totalR: round(g.totalR), avgR: round(g.totalR / g.count), winRate: g.wins / g.count }))
+    .sort((a, b) => b.avgR - a.avgR);
+}
 
 const round = (n: number) => Math.round(n * 100) / 100;
