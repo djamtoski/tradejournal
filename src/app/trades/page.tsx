@@ -60,8 +60,10 @@ async function Trades({ searchParams }: { searchParams: PageProps<"/trades">["se
         <div className="flex flex-wrap items-center justify-between gap-3">
           <FilterRow filters={f} tags={tags.map((t) => ({ name: t.name, group: t.group }))} />
           <p className="num text-[12px] text-faint">
-            {trades.length.toLocaleString()} trades ·{" "}
-            <span className={pnlTone(s.total)}>{formatPnl(s.total)}</span> · {formatPct(s.winRate, 0)} win rate
+            {trades.length.toLocaleString("en-US")} {trades.length === 1 ? "trade" : "trades"} ·{" "}
+            <span className={pnlTone(s.total)}>{formatPnl(s.total)}</span> ·{" "}
+            {s.wins + s.losses ? `${formatPct(s.winRate, 0)} win rate` : "no wins or losses yet"}
+            {s.breakevens > 0 && ` · ${s.breakevens} break-even`}
           </p>
         </div>
 
@@ -74,7 +76,7 @@ async function Trades({ searchParams }: { searchParams: PageProps<"/trades">["se
             ) : (
               <div className="flex flex-col items-center gap-2 px-6 py-16 text-center">
                 <h2 className="text-[17px]">No trades match these filters</h2>
-                <Link href={tradesHref(f, { q: "", side: "", result: "", tag: "", rules: "", page: 1 })} className="text-[13px] text-muted-foreground hover:text-foreground">
+                <Link href={tradesHref(f, { q: "", side: "", result: "", tag: "", grade: "", rules: "", page: 1 })} className="text-[13px] text-muted-foreground hover:text-foreground">
                   Clear filters
                 </Link>
               </div>
@@ -113,6 +115,7 @@ const columns: { key: SortKey | null; label: string; align?: "right" }[] = [
   { key: null, label: "Exit", align: "right" },
   { key: "pnl", label: "P&L", align: "right" },
   { key: "r", label: "R", align: "right" },
+  { key: null, label: "Grade" },
   { key: null, label: "Tags" },
   { key: null, label: "Rules" },
 ];
@@ -197,15 +200,19 @@ function TradeTable({
                     {t.side === "long" ? "Long" : "Short"}
                   </span>
                 </td>
-                <td className="num px-2 text-right">{t.quantity.toLocaleString()}</td>
+                <td className="num px-2 text-right">{t.quantity.toLocaleString("en-US")}</td>
                 <td className="num px-2 text-right text-muted-foreground">{price(t.entryPrice)}</td>
                 <td className="num px-2 text-right text-muted-foreground">{price(t.exitPrice)}</td>
                 <td className={cn("num px-2 text-right", pnlTone(pnl))}>{formatPnl(pnl, true)}</td>
                 <td className={cn("num px-2 text-right", t.risk ? pnlTone(pnl) : "text-faint")}>{formatR(rOf(t, f.mode))}</td>
+                <td className="num px-2 text-muted-foreground">{t.grade ?? ""}</td>
                 <td className="max-w-[16rem] px-2">
                   <div className="flex flex-wrap gap-1">
                     {t.tags.map((tag) => (
                       <span key={tag} className="truncate rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">{tag}</span>
+                    ))}
+                    {t.confluences.map((tag) => (
+                      <span key={tag} className="truncate rounded border border-input px-1.5 py-px text-[11px] text-muted-foreground">{tag}</span>
                     ))}
                     {t.mistakes.map((tag) => (
                       <span key={tag} className="truncate rounded bg-loss/10 px-1.5 py-0.5 text-[11px] text-loss">{tag}</span>
@@ -254,7 +261,7 @@ async function TradeDetail({
   const facts: [string, string][] = [
     ["Entry", price(t.entryPrice)],
     ["Exit", price(t.exitPrice)],
-    ["Quantity", t.quantity.toLocaleString()],
+    ["Quantity", t.quantity.toLocaleString("en-US")],
     ["Hold", t.closedAt ? hold(t.openedAt, t.closedAt) : "Open"],
     ["Gross", formatPnl(t.grossPnl, true)],
     ["Fees", t.fees.toFixed(2)],
@@ -343,6 +350,8 @@ async function TradeDetail({
           tagIds: detail.tagIds,
           note: t.note ?? "",
           followedRules: t.followedRules,
+          grade: t.grade,
+          exitReason: t.exitReason,
           mfe: t.mfe,
           mae: t.mae,
           stopPrice: t.stopPrice,
@@ -382,7 +391,7 @@ async function TradeDetail({
                     {formatTime(x.executedAt, timezone, true)}
                   </td>
                   <td className={x.action === "buy" ? "text-foreground" : "text-muted-foreground"}>{x.action === "buy" ? "Buy" : "Sell"}</td>
-                  <td className="num text-right">{x.quantity.toLocaleString()}</td>
+                  <td className="num text-right">{x.quantity.toLocaleString("en-US")}</td>
                   <td className="num text-right text-muted-foreground">{price(x.price)}</td>
                 </tr>
               ))}
@@ -434,7 +443,7 @@ function OpenPositions({
                     {t.side === "long" ? "Long" : "Short"}
                   </span>
                 </td>
-                <td className="num px-2 text-right">{t.quantity.toLocaleString()}</td>
+                <td className="num px-2 text-right">{t.quantity.toLocaleString("en-US")}</td>
                 <td className="num px-2 text-right text-muted-foreground">{price(t.entryPrice)}</td>
                 <td className="num px-2 text-right text-muted-foreground">{price(t.stopPrice)}</td>
                 <td className="py-0 pl-2 pr-4 text-muted-foreground">{t.account}</td>

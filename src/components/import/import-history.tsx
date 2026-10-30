@@ -51,7 +51,7 @@ export function ImportHistory({ imports, timezone }: { imports: Row[]; timezone:
               </span>
             </td>
             <td className="whitespace-nowrap px-4 text-muted-foreground">{imp.accountName}</td>
-            <td className="num px-4 text-right">{imp.executionCount.toLocaleString()}</td>
+            <td className="num px-4 text-right">{imp.executionCount.toLocaleString("en-US")}</td>
             <td className="px-4 text-right">
               {confirming === imp.id ? (
                 <span className="flex items-center justify-end gap-2 text-[12px]">

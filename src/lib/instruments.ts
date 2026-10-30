@@ -3,7 +3,7 @@
  * Used to pre-fill multipliers for manual trades and broker imports.
  */
 
-export type AssetClass = "stock" | "future" | "forex" | "option";
+export type AssetClass = "stock" | "future" | "forex" | "option" | "cfd";
 
 export const futures: Record<string, { name: string; multiplier: number }> = {
   NQ: { name: "E-mini Nasdaq-100", multiplier: 20 },

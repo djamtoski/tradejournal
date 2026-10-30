@@ -15,7 +15,7 @@ import { getAccounts, getAllTags, getClosedTradesBetween, isMistakeGroup } from 
 import { summarize } from "@/lib/stats";
 import { getSettings } from "@/lib/settings/queries";
 import { addDaysKey, dayKey, startOfDay } from "@/lib/tz";
-import { formatPct, formatPnl, formatRatio, pnlTone } from "@/lib/format";
+import { formatPct, formatPnl, formatRatio, pnlTone, winLossLabel, formatWinRate } from "@/lib/format";
 
 export default function PlaybookPage({ searchParams }: PageProps<"/playbook">) {
   return (
@@ -143,7 +143,7 @@ async function SetupStats({ tag }: { tag: string }) {
       {bar}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Kpi label="Net P&L" value={formatPnl(s.total)} tone={pnlTone(s.total)} sub={`${s.count} trades, all time`} />
-        <Kpi label="Win rate" value={formatPct(s.winRate, 0)} sub={`${s.wins}W · ${s.losses}L`} />
+        <Kpi label="Win rate" value={formatWinRate(s, 0)} sub={winLossLabel(s)} />
         <Kpi label="Profit factor" value={formatRatio(s.profitFactor)} sub={`expectancy ${formatPnl(s.expectancy)}`} />
         <Kpi
           label="Last 30 days"

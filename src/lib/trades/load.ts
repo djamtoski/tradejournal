@@ -8,6 +8,7 @@ import { db, schema } from "../../db";
 import type { Scope } from "../filters";
 import { riskOf, type StatTrade } from "../stats";
 import { dayKey, zonedParts } from "../tz";
+import { isConfluenceGroup } from "./fields";
 
 export type JournalTrade = StatTrade & {
   assetClass: string;
@@ -21,8 +22,11 @@ export type JournalTrade = StatTrade & {
   multiplier: number;
   stopPrice: number | null;
   targetPrice: number | null;
-  /** Tags from the "Mistake" group; `tags` holds the rest (setups etc). */
+  /** Tags from the "Mistake" group; `confluences` from "Confluence"; `tags` holds the rest (setups). */
   mistakes: string[];
+  confluences: string[];
+  grade: string | null;
+  exitReason: string | null;
 };
 
 /** SQL conditions for the shared account / asset-class filter. Empty lists mean "all". */
@@ -70,6 +74,8 @@ export async function loadClosedTrades(
       multiplier: true,
       stopPrice: true,
       targetPrice: true,
+      grade: true,
+      exitReason: true,
     },
   });
   const defaultRisk = new Map(
@@ -87,10 +93,10 @@ export async function loadClosedTrades(
     .from(schema.tradeTags)
     .innerJoin(schema.tags, eq(schema.tags.id, schema.tradeTags.tagId))
     .leftJoin(schema.tagGroups, eq(schema.tagGroups.id, schema.tags.groupId));
-  const tagsByTrade = new Map<number, { tags: string[]; mistakes: string[] }>();
+  const tagsByTrade = new Map<number, { tags: string[]; mistakes: string[]; confluences: string[] }>();
   for (const { tradeId, name, group } of tagRows) {
-    const entry = tagsByTrade.get(tradeId) ?? { tags: [], mistakes: [] };
-    (isMistakeGroup(group) ? entry.mistakes : entry.tags).push(name);
+    const entry = tagsByTrade.get(tradeId) ?? { tags: [], mistakes: [], confluences: [] };
+    (isMistakeGroup(group) ? entry.mistakes : isConfluenceGroup(group) ? entry.confluences : entry.tags).push(name);
     tagsByTrade.set(tradeId, entry);
   }
 
@@ -105,6 +111,7 @@ export async function loadClosedTrades(
       risk: riskOf({ ...r, defaultRisk: defaultRisk.get(r.accountId) ?? null }),
       tags: tagsByTrade.get(r.id)?.tags ?? [],
       mistakes: tagsByTrade.get(r.id)?.mistakes ?? [],
+      confluences: tagsByTrade.get(r.id)?.confluences ?? [],
     };
   });
 }

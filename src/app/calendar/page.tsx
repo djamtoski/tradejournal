@@ -16,7 +16,7 @@ import { weekReviewSet } from "@/lib/review/queries";
 import { NotebookText } from "lucide-react";
 import { dayKey } from "@/lib/tz";
 import { dailySeries, summarize, weekStart } from "@/lib/stats";
-import { formatPct, formatPnl, pnlTone } from "@/lib/format";
+import { formatPct, formatPnl, pnlTone, formatWinRate } from "@/lib/format";
 
 type View = "month" | "year";
 type State = { month: Date; view: View };
@@ -248,7 +248,7 @@ function Summary({ summary: s, label }: { summary: ReturnType<typeof summarize>;
   const rows: [string, string, string?][] = [
     ["Trading days", String(s.tradingDays)],
     ["Green days", s.tradingDays ? `${s.greenDays} · ${formatPct(s.greenDays / s.tradingDays, 0)}` : "—"],
-    ["Win rate", s.count ? formatPct(s.winRate) : "—"],
+    ["Win rate", formatWinRate(s)],
     ["Trades", String(s.count)],
     ["Avg day", s.tradingDays ? formatPnl(s.total / s.tradingDays) : "—", s.tradingDays ? pnlTone(s.total) : undefined],
     ["Best day", s.bestDay ? formatPnl(s.bestDay.pnl) : "—", s.bestDay ? pnlTone(s.bestDay.pnl) : undefined],

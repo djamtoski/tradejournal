@@ -36,3 +36,11 @@ export function formatR(r: number | null, digits = 1) {
   if (Number(abs) === 0) return `${abs}R`;
   return `${r > 0 ? "+" : "−"}${abs}R`;
 }
+
+/** "3W · 2L", plus "· 1BE" when there are break-even scratches. */
+export const winLossLabel = (s: { wins: number; losses: number; breakevens: number }) =>
+  `${s.wins}W · ${s.losses}L${s.breakevens ? ` · ${s.breakevens}BE` : ""}`;
+
+/** Win rate over decided trades; "—" when every trade so far is a scratch. */
+export const formatWinRate = (s: { winRate: number; wins: number; losses: number }, digits = 1) =>
+  s.wins + s.losses ? formatPct(s.winRate, digits) : "—";

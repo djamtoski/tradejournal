@@ -1,4 +1,5 @@
 /** Pure metric helpers. Inputs are closed trades; no DB access here. */
+import { exitReasonLabel, exitReasonOptions, gradeOptions } from "./trades/fields";
 import { addDaysKey } from "./tz";
 
 export type StatTrade = {
@@ -11,6 +12,10 @@ export type StatTrade = {
   netPnl: number;
   tags: string[];
   mistakes?: string[];
+  /** Tags from the "Confluence" group, kept apart from setups. */
+  confluences?: string[];
+  grade?: string | null;
+  exitReason?: string | null;
   /** Trading-timezone calendar day the trade closed on ("YYYY-MM-DD"). */
   day: string;
   /** Trading-timezone hour (0–23) and weekday (0 = Sunday) the trade opened. */
@@ -46,17 +51,39 @@ export function riskOf(t: {
   return t.defaultRisk && t.defaultRisk > 0 ? t.defaultRisk : null;
 }
 
+export type Outcome = "win" | "loss" | "breakeven";
+
+/**
+ * A trade closed at a break-even stop, or for exactly $0, is a scratch: it
+ * counts as neither a win nor a loss, so it doesn't drag the win rate down.
+ */
+export function outcomeOf(t: StatTrade, mode: PnlMode): Outcome {
+  const pnl = round(pnlOf(t, mode));
+  if (t.exitReason === "breakeven" || pnl === 0) return "breakeven";
+  return pnl > 0 ? "win" : "loss";
+}
+
+/** Wins over decided trades (wins + losses). */
+const winShare = (wins: number, losses: number) => (wins + losses ? wins / (wins + losses) : 0);
+/** Same, but null when a group has no decided trades yet (only scratches, or empty). */
+const groupWinShare = (wins: number, losses: number) => (wins + losses ? wins / (wins + losses) : null);
+
 /** Result in multiples of risk, e.g. +2.4R. Null when the trade has no risk. */
 export const rOf = (t: StatTrade, mode: PnlMode) =>
   t.risk && t.risk > 0 ? pnlOf(t, mode) / t.risk : null;
 
 export function summarize(trades: StatTrade[], mode: PnlMode) {
   const pnls = trades.map((t) => pnlOf(t, mode));
-  const wins = pnls.filter((p) => p > 0);
-  const losses = pnls.filter((p) => p < 0);
-  const grossWin = wins.reduce((a, b) => a + b, 0);
-  const grossLoss = Math.abs(losses.reduce((a, b) => a + b, 0));
+  const outcomes = trades.map((t) => outcomeOf(t, mode));
+  const wins = pnls.filter((_, i) => outcomes[i] === "win");
+  const losses = pnls.filter((_, i) => outcomes[i] === "loss");
+  const breakevens = outcomes.filter((o) => o === "breakeven").length;
+  // Totals use every trade, so a scratch that cost fees still shows up in P&L.
+  const grossWin = pnls.filter((p) => p > 0).reduce((a, b) => a + b, 0);
+  const grossLoss = Math.abs(pnls.filter((p) => p < 0).reduce((a, b) => a + b, 0));
   const total = grossWin - grossLoss;
+  const winSum = wins.reduce((a, b) => a + b, 0);
+  const lossSum = Math.abs(losses.reduce((a, b) => a + b, 0));
 
   const days = dailySeries(trades, mode);
   const greenDays = days.filter((d) => d.pnl > 0).length;
@@ -70,12 +97,13 @@ export function summarize(trades: StatTrade[], mode: PnlMode) {
     avgR: rs.length ? round(totalR / rs.length) : null,
     total,
     count: trades.length,
-    winRate: trades.length ? wins.length / trades.length : 0,
+    winRate: winShare(wins.length, losses.length),
     wins: wins.length,
     losses: losses.length,
+    breakevens,
     profitFactor: grossLoss ? grossWin / grossLoss : grossWin ? Infinity : 0,
-    avgWin: wins.length ? grossWin / wins.length : 0,
-    avgLoss: losses.length ? grossLoss / losses.length : 0,
+    avgWin: wins.length ? winSum / wins.length : 0,
+    avgLoss: losses.length ? lossSum / losses.length : 0,
     expectancy: trades.length ? total / trades.length : 0,
     tradingDays: days.length,
     greenDays,
@@ -167,14 +195,16 @@ function groupPnl<K extends string>(
   mode: PnlMode,
   keysOf: (t: StatTrade) => K[],
 ) {
-  const groups = new Map<K, { pnl: number; trades: number; wins: number }>();
+  const groups = new Map<K, { pnl: number; trades: number; wins: number; losses: number }>();
   for (const t of trades) {
     const pnl = pnlOf(t, mode);
+    const outcome = outcomeOf(t, mode);
     for (const key of keysOf(t)) {
-      const g = groups.get(key) ?? { pnl: 0, trades: 0, wins: 0 };
+      const g = groups.get(key) ?? { pnl: 0, trades: 0, wins: 0, losses: 0 };
       g.pnl += pnl;
       g.trades += 1;
-      if (pnl > 0) g.wins += 1;
+      if (outcome === "win") g.wins += 1;
+      if (outcome === "loss") g.losses += 1;
       groups.set(key, g);
     }
   }
@@ -182,7 +212,7 @@ function groupPnl<K extends string>(
     key,
     pnl: round(g.pnl),
     trades: g.trades,
-    winRate: g.trades ? g.wins / g.trades : 0,
+    winRate: groupWinShare(g.wins, g.losses),
   }));
 }
 
@@ -194,7 +224,7 @@ export function byWeekday(trades: StatTrade[], mode: PnlMode) {
     return d >= 1 && d <= 5 ? [weekdays[d - 1]] : [];
   });
   return weekdays.map(
-    (key) => rows.find((r) => r.key === key) ?? { key, pnl: 0, trades: 0, winRate: 0 },
+    (key) => rows.find((r) => r.key === key) ?? { key, pnl: 0, trades: 0, winRate: null },
   );
 }
 
@@ -218,7 +248,7 @@ export const bySide = (trades: StatTrade[], mode: PnlMode) =>
 
 /** Keeps a fixed bucket order and fills empty buckets, so charts don't jump around. */
 function inOrder<K extends string>(rows: ReturnType<typeof groupPnl<K>>, order: readonly K[]) {
-  return order.map((key) => rows.find((r) => r.key === key) ?? { key, pnl: 0, trades: 0, winRate: 0 });
+  return order.map((key) => rows.find((r) => r.key === key) ?? { key, pnl: 0, trades: 0, winRate: null });
 }
 
 const holdBuckets = ["< 2m", "2–5m", "5–15m", "15–30m", "30–60m", "1–2h", "2h+"] as const;
@@ -261,7 +291,7 @@ export function byRules(trades: StatTrade[], mode: PnlMode) {
   return inOrder(rows, ruleBuckets);
 }
 
-const assetLabels: Record<string, string> = { stock: "Stocks", future: "Futures", forex: "Forex", option: "Options" };
+const assetLabels: Record<string, string> = { stock: "Stocks", future: "Futures", forex: "Forex", option: "Options", cfd: "CFDs" };
 
 export const byAssetClass = (trades: StatTrade[], mode: PnlMode) =>
   groupPnl(trades, mode, (t) => [assetLabels[t.assetClass ?? ""] ?? "Other"]).sort((a, b) => b.pnl - a.pnl);
@@ -280,21 +310,42 @@ export function byPriceBucket(trades: StatTrade[], mode: PnlMode) {
 
 /** Average and total R per setup tag, counting only trades that have a risk. */
 export function rByTag(trades: StatTrade[], mode: PnlMode) {
-  const groups = new Map<string, { totalR: number; count: number; wins: number }>();
+  const groups = new Map<string, { totalR: number; count: number; wins: number; losses: number }>();
   for (const t of trades) {
     const r = rOf(t, mode);
     if (r === null) continue;
+    const outcome = outcomeOf(t, mode);
     for (const tag of t.tags) {
-      const g = groups.get(tag) ?? { totalR: 0, count: 0, wins: 0 };
+      const g = groups.get(tag) ?? { totalR: 0, count: 0, wins: 0, losses: 0 };
       g.totalR += r;
       g.count += 1;
-      if (r > 0) g.wins += 1;
+      if (outcome === "win") g.wins += 1;
+      if (outcome === "loss") g.losses += 1;
       groups.set(tag, g);
     }
   }
   return [...groups.entries()]
-    .map(([key, g]) => ({ key, trades: g.count, totalR: round(g.totalR), avgR: round(g.totalR / g.count), winRate: g.wins / g.count }))
+    .map(([key, g]) => ({ key, trades: g.count, totalR: round(g.totalR), avgR: round(g.totalR / g.count), winRate: groupWinShare(g.wins, g.losses) }))
     .sort((a, b) => b.avgR - a.avgR);
+}
+
+/** By setup grade, best first; ungraded trades last. */
+export function byGrade(trades: StatTrade[], mode: PnlMode) {
+  const order = [...gradeOptions, "Not graded"];
+  const rows = groupPnl(trades, mode, (t) => [t.grade ?? "Not graded"]);
+  return order.flatMap((key) => rows.filter((r) => r.key === key));
+}
+
+/** By confluence tag, best first. */
+export function byConfluence(trades: StatTrade[], mode: PnlMode) {
+  return groupPnl(trades, mode, (t) => t.confluences ?? []).sort((a, b) => b.pnl - a.pnl);
+}
+
+/** By how the trade ended; trades without a reason are grouped as "Not set". */
+export function byExitReason(trades: StatTrade[], mode: PnlMode) {
+  const order = [...exitReasonOptions.map((o) => o.label), "Not set"];
+  const rows = groupPnl(trades, mode, (t) => [exitReasonLabel(t.exitReason) ?? "Not set"]);
+  return order.flatMap((key) => rows.filter((r) => r.key === key));
 }
 
 const round = (n: number) => Math.round(n * 100) / 100;

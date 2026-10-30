@@ -12,7 +12,7 @@ const trade = (p: Partial<JournalTrade> & { netPnl: number; open: string; close:
   return {
     id: Math.random(), symbol: "NQZ6", side: "long", assetClass: "future", quantity: 1, entryPrice: 21000, exitPrice: 21010,
     fees: 4.5, grossPnl: p.netPnl + 4.5, followedRules: null, note: null, accountId: 1, multiplier: 20, stopPrice: null,
-    targetPrice: null, tags: [], mistakes: [], day, openHour: 9, openWeekday: 3, risk: null,
+    targetPrice: null, tags: [], mistakes: [], confluences: [], grade: null, exitReason: null, day, openHour: 9, openWeekday: 3, risk: null,
     openedAt: at(day, p.open), closedAt: at(day, p.close), ...p,
   };
 };
@@ -30,7 +30,8 @@ test("week ranges start on Monday", () => {
 test("day packet lists trades in open order with tags, R, rules and notes", () => {
   const md = buildPacket(base({
     trades: [
-      trade({ netPnl: -500, open: "12:09", close: "12:21", risk: 500, mistakes: ["Chased entry"], followedRules: false, note: "FOMO | again" }),
+      trade({ netPnl: -500, open: "12:09", close: "12:21", risk: 500, mistakes: ["Chased entry"], followedRules: false, note: "FOMO | again", exitReason: "stop" }),
+      trade({ netPnl: 0, open: "13:00", close: "13:05", risk: 500, tags: ["IFVG"], confluences: ["LRLR"], grade: "A-", exitReason: "breakeven" }),
       trade({ netPnl: 1000, open: "09:36", close: "09:52", risk: 500, tags: ["Opening range breakout"], followedRules: true }),
     ],
     journal: [{ day: "2026-10-28", content: "Chased after the open.", followedRules: false }],
@@ -42,11 +43,13 @@ test("day packet lists trades in open order with tags, R, rules and notes", () =
   }));
   assert.match(md, /# Trading review packet: Wed, Oct 28, 2026/);
   assert.match(md, /Net P&L \+\$500\.00/);
+  assert.match(md, /1 win, 1 loss, 1 break-even, win rate 50%/);
+  assert.match(md, /\| A- \| IFVG \| LRLR \|  \| Break-even stop \|/);
   assert.match(md, /R: \+1\.0R total/);
   const rows = md.split("\n").filter((l) => l.startsWith("| 09:36") || l.startsWith("| 12:09"));
   assert.equal(rows.length, 2);
   assert.ok(rows[0].startsWith("| 09:36"));
-  assert.match(rows[1], /Chased entry \| broke \| FOMO \/ again \|/); // pipes in notes can't break the table
+  assert.match(rows[1], /Chased entry \| Stopped out \| broke \| FOMO \/ again \|/); // pipes in notes can't break the table
   assert.match(md, /rated: broke my rules/);
   assert.match(md, /### Daily rules/);
   assert.match(md, /### ORB \(setup: Opening range breakout\)/);

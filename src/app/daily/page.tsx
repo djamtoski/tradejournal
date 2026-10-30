@@ -27,8 +27,8 @@ import { getReview } from "@/lib/review/queries";
 import { ReviewBody } from "@/components/review/review-body";
 import { weekStart } from "@/lib/stats";
 import { addDaysKey, dayKey, formatTime } from "@/lib/tz";
-import { pnlOf, rOf, summarize, type PnlMode } from "@/lib/stats";
-import { formatMoney, formatPct, formatPnl, formatR, pnlTone } from "@/lib/format";
+import { outcomeOf, pnlOf, rOf, summarize, type PnlMode } from "@/lib/stats";
+import { formatMoney, formatPct, formatPnl, formatR, pnlTone, winLossLabel, formatWinRate } from "@/lib/format";
 
 export default function DailyPage({ searchParams }: PageProps<"/daily">) {
   return (
@@ -112,7 +112,7 @@ async function Daily({ searchParams }: { searchParams: PageProps<"/daily">["sear
                       <span className="num text-muted-foreground">{formatTime(t.openedAt, timezone)}</span>
                       <span className="font-medium">{t.symbol}</span>
                       <span className="text-muted-foreground">
-                        {t.side === "long" ? "Long" : "Short"} {t.quantity.toLocaleString()} @ {t.entryPrice.toLocaleString("en-US", { maximumFractionDigits: 4 })}
+                        {t.side === "long" ? "Long" : "Short"} {t.quantity.toLocaleString("en-US")} @ {t.entryPrice.toLocaleString("en-US", { maximumFractionDigits: 4 })}
                       </span>
                       <span className="ml-auto text-[12px] text-faint">{t.account}</span>
                     </Link>
@@ -218,10 +218,10 @@ function DayDetail({ trades, mode, timezone }: { trades: JournalTrade[]; mode: P
           label={`${mode === "net" ? "Net" : "Gross"} P&L`}
           value={formatPnl(s.total)}
           tone={pnlTone(s.total)}
-          sub={`${s.wins}W · ${s.losses}L`}
+          sub={winLossLabel(s)}
         />
-        <Kpi label="Win rate" value={formatPct(s.winRate, 0)} sub={`${s.count} trades`} />
-        <Kpi label="Volume" value={volume.toLocaleString()} sub="shares / contracts, in and out" />
+        <Kpi label="Win rate" value={formatWinRate(s, 0)} sub={`${s.count} ${s.count === 1 ? "trade" : "trades"}`} />
+        <Kpi label="Volume" value={volume.toLocaleString("en-US")} sub="shares / contracts, in and out" />
         <Kpi
           label="Fees"
           value={formatMoney(fees)}
@@ -305,7 +305,7 @@ function TradesTable({ trades, mode, timezone }: { trades: JournalTrade[]; mode:
                     {t.side === "long" ? "Long" : "Short"}
                   </span>
                 </td>
-                <td className="num px-2 text-right">{t.quantity.toLocaleString()}</td>
+                <td className="num px-2 text-right">{t.quantity.toLocaleString("en-US")}</td>
                 <td className="num px-2 text-right text-muted-foreground">{price(t.entryPrice)}</td>
                 <td className="num px-2 text-right text-muted-foreground">{price(t.exitPrice)}</td>
                 <td className={cn("num px-2 text-right", pnlTone(pnl))}>{formatPnl(pnl, true)}</td>
@@ -314,6 +314,11 @@ function TradesTable({ trades, mode, timezone }: { trades: JournalTrade[]; mode:
                   <div className="flex flex-wrap gap-1">
                     {t.tags.map((tag) => (
                       <span key={tag} className="truncate rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                        {tag}
+                      </span>
+                    ))}
+                    {t.confluences.map((tag) => (
+                      <span key={tag} className="truncate rounded border border-input px-1.5 py-px text-[11px] text-muted-foreground">
                         {tag}
                       </span>
                     ))}
@@ -333,15 +338,17 @@ function TradesTable({ trades, mode, timezone }: { trades: JournalTrade[]; mode:
 }
 
 function Blotter({ trades }: { trades: JournalTrade[] }) {
-  const rows = new Map<string, { trades: number; volume: number; gross: number; fees: number; net: number; wins: number }>();
+  const rows = new Map<string, { trades: number; volume: number; gross: number; fees: number; net: number; wins: number; losses: number }>();
   for (const t of trades) {
-    const r = rows.get(t.symbol) ?? { trades: 0, volume: 0, gross: 0, fees: 0, net: 0, wins: 0 };
+    const r = rows.get(t.symbol) ?? { trades: 0, volume: 0, gross: 0, fees: 0, net: 0, wins: 0, losses: 0 };
     r.trades++;
     r.volume += t.quantity * 2;
     r.gross += t.grossPnl;
     r.fees += t.fees;
     r.net += t.netPnl;
-    if (t.netPnl > 0) r.wins++;
+    const outcome = outcomeOf(t, "net");
+    if (outcome === "win") r.wins++;
+    if (outcome === "loss") r.losses++;
     rows.set(t.symbol, r);
   }
   const sorted = [...rows.entries()].sort((a, b) => b[1].net - a[1].net);
@@ -364,8 +371,8 @@ function Blotter({ trades }: { trades: JournalTrade[] }) {
           <tr key={symbol} className="h-10 border-b border-border last:border-0 hover:bg-muted/50">
             <td className="px-4 font-medium">{symbol}</td>
             <td className="num px-2 text-right">{r.trades}</td>
-            <td className="num px-2 text-right text-muted-foreground">{formatPct(r.wins / r.trades, 0)}</td>
-            <td className="num px-2 text-right text-muted-foreground">{r.volume.toLocaleString()}</td>
+            <td className="num px-2 text-right text-muted-foreground">{r.wins + r.losses ? formatPct(r.wins / (r.wins + r.losses), 0) : "—"}</td>
+            <td className="num px-2 text-right text-muted-foreground">{r.volume.toLocaleString("en-US")}</td>
             <td className={cn("num px-2 text-right", pnlTone(r.gross))}>{formatPnl(r.gross, true)}</td>
             <td className="num px-2 text-right text-muted-foreground">{r.fees.toFixed(2)}</td>
             <td className={cn("num px-4 text-right", pnlTone(r.net))}>{formatPnl(r.net, true)}</td>

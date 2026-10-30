@@ -2,7 +2,7 @@ import { Kpi, Panel } from "@/components/dashboard/card";
 import { EquityChart, PnlBarsChart, RDistributionChart } from "@/components/dashboard/charts";
 import { Breakdown } from "@/components/dashboard/breakdown";
 import { byMistake, bySide, dailySeries, groupedSeries, rDistribution, summarize } from "@/lib/stats";
-import { formatPct, formatPnl, formatR, formatRatio, pnlTone } from "@/lib/format";
+import { formatPct, formatPnl, formatR, formatRatio, pnlTone, winLossLabel, formatWinRate } from "@/lib/format";
 import type { TabProps } from "./types";
 
 export function OverviewTab({ trades, filters }: TabProps) {
@@ -25,7 +25,7 @@ export function OverviewTab({ trades, filters }: TabProps) {
           tone={pnlTone(s.total)}
           sub={`${s.count} trades · ${s.tradingDays} days`}
         />
-        <Kpi label="Win rate" value={formatPct(s.winRate)} sub={`${s.wins}W · ${s.losses}L`} />
+        <Kpi label="Win rate" value={formatWinRate(s)} sub={winLossLabel(s)} />
         <Kpi
           label="Profit factor"
           value={formatRatio(s.profitFactor)}
@@ -56,8 +56,8 @@ export function OverviewTab({ trades, filters }: TabProps) {
           <dl className="flex flex-col px-4 pb-3 pt-1 text-[13px]">
             <Stat label="Best day" value={s.bestDay ? formatPnl(s.bestDay.pnl) : "—"} tone={s.bestDay ? pnlTone(s.bestDay.pnl) : undefined} hint={s.bestDay?.day} />
             <Stat label="Worst day" value={s.worstDay ? formatPnl(s.worstDay.pnl) : "—"} tone={s.worstDay ? pnlTone(s.worstDay.pnl) : undefined} hint={s.worstDay?.day} />
-            <Stat label="Long" value={formatPnl(long?.pnl ?? 0)} tone={pnlTone(long?.pnl ?? 0)} hint={long ? `${long.trades} · ${formatPct(long.winRate, 0)}` : undefined} />
-            <Stat label="Short" value={formatPnl(short?.pnl ?? 0)} tone={pnlTone(short?.pnl ?? 0)} hint={short ? `${short.trades} · ${formatPct(short.winRate, 0)}` : undefined} />
+            <Stat label="Long" value={formatPnl(long?.pnl ?? 0)} tone={pnlTone(long?.pnl ?? 0)} hint={long ? `${long.trades} · ${long.winRate === null ? "—" : formatPct(long.winRate, 0)}` : undefined} />
+            <Stat label="Short" value={formatPnl(short?.pnl ?? 0)} tone={pnlTone(short?.pnl ?? 0)} hint={short ? `${short.trades} · ${short.winRate === null ? "—" : formatPct(short.winRate, 0)}` : undefined} />
             <Stat label="Avg trades / day" value={(s.count / Math.max(1, s.tradingDays)).toFixed(1)} />
           </dl>
         </Panel>

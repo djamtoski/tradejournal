@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db, schema } from "@/db";
 import { removeImage } from "@/lib/screenshots/storage";
 import { getSettings } from "@/lib/settings/queries";
+import { isExitReason, isGrade } from "./fields";
 import { validateManualTrade, type FieldErrors, type ManualTradeInput } from "./manual";
 
 const finiteOrNull = (n: unknown) =>
@@ -19,12 +20,16 @@ export async function updateTrade(
     mae?: number | null;
     stopPrice?: number | null;
     targetPrice?: number | null;
+    grade?: string | null;
+    exitReason?: string | null;
   },
 ) {
   const set: Partial<typeof schema.trades.$inferInsert> = {};
   if ("note" in patch) set.note = patch.note ? patch.note.slice(0, 20_000) : null;
   if ("followedRules" in patch)
     set.followedRules = typeof patch.followedRules === "boolean" ? patch.followedRules : null;
+  if ("grade" in patch) set.grade = isGrade(patch.grade) ? patch.grade : null;
+  if ("exitReason" in patch) set.exitReason = isExitReason(patch.exitReason) ? patch.exitReason : null;
   for (const key of ["mfe", "mae", "stopPrice", "targetPrice"] as const) {
     if (key in patch) set[key] = finiteOrNull(patch[key]);
   }

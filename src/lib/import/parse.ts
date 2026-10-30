@@ -5,7 +5,7 @@
 
 import { zonedInstant } from "../tz";
 
-export type AssetClass = "stock" | "future" | "forex" | "option";
+export type AssetClass = "stock" | "future" | "forex" | "option" | "cfd";
 
 export type ParsedExecution = {
   symbol: string;
@@ -167,6 +167,7 @@ function parseAssetClass(s: string): AssetClass | null {
   if (/^(fut|future|futures)$/.test(v)) return "future";
   if (/^(fx|forex|cash|currency)$/.test(v)) return "forex";
   if (/^(opt|option|options)$/.test(v)) return "option";
+  if (/^(cfd|cfds)$/.test(v)) return "cfd";
   return null;
 }
 

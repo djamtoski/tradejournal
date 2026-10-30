@@ -26,6 +26,7 @@ export const assetClassOptions = [
   { id: "future", label: "Futures" },
   { id: "forex", label: "Forex" },
   { id: "option", label: "Options" },
+  { id: "cfd", label: "CFDs" },
 ] as const;
 export type AssetClassId = (typeof assetClassOptions)[number]["id"];
 

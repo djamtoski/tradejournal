@@ -2,6 +2,9 @@ import { Panel } from "@/components/dashboard/card";
 import { Breakdown, RBreakdown } from "@/components/dashboard/breakdown";
 import {
   byAssetClass,
+  byConfluence,
+  byExitReason,
+  byGrade,
   byHoldTime,
   byHour,
   byMistake,
@@ -55,6 +58,11 @@ export function ActivityTab({ trades, filters: { mode } }: TabProps) {
 export function SetupsTab({ trades, filters: { mode } }: TabProps) {
   const mistakes = byMistake(trades, mode);
   const rRows = rByTag(trades, mode);
+  const grades = byGrade(trades, mode);
+  const confluences = byConfluence(trades, mode);
+  const graded = grades.some((r) => r.key !== "Not graded");
+  const exits = byExitReason(trades, mode);
+  const exitsSet = exits.some((r) => r.key !== "Not set");
   return (
     <>
       <div className="grid gap-4 lg:grid-cols-2">
@@ -67,6 +75,21 @@ export function SetupsTab({ trades, filters: { mode } }: TabProps) {
           ) : (
             <Empty>Add stops, or set 1R per account in Settings, to compare setups in R.</Empty>
           )}
+        </Panel>
+      </div>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Panel title="By grade" meta="Win rate leaves out break-even trades">
+          {graded ? <Breakdown rows={grades} /> : <Empty>Grade trades A+ to C in the trade editor to see which grades pay.</Empty>}
+        </Panel>
+        <Panel title="By confluence">
+          {confluences.length ? (
+            <Breakdown rows={confluences} />
+          ) : (
+            <Empty>Add tags to a &quot;Confluence&quot; group in Settings, then tag trades with them.</Empty>
+          )}
+        </Panel>
+        <Panel title="How trades ended">
+          {exitsSet ? <Breakdown rows={exits} /> : <Empty>Set how each trade ended (target, stop, break-even…) in the trade editor.</Empty>}
         </Panel>
       </div>
       <div className="grid gap-4 lg:grid-cols-3">

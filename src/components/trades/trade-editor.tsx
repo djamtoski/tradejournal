@@ -3,8 +3,9 @@
 import { useRef, useState, useTransition } from "react";
 import { Check, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatR } from "@/lib/format";
+import { formatR, pnlTone } from "@/lib/format";
 import { createTag, setTradeTags, updateTrade } from "@/lib/trades/actions";
+import { exitReasonOptions, gradeOptions } from "@/lib/trades/fields";
 
 type Tag = { id: number; name: string; groupId: number | null; group: string | null };
 
@@ -36,6 +37,8 @@ export function TradeEditor({
     tagIds: number[];
     note: string;
     followedRules: boolean | null;
+    grade: string | null;
+    exitReason: string | null;
     mfe: number | null;
     mae: number | null;
     stopPrice: number | null;
@@ -47,6 +50,8 @@ export function TradeEditor({
   const [note, setNote] = useState(initial.note);
   const savedNote = useRef(initial.note);
   const [followedRules, setFollowedRules] = useState(initial.followedRules);
+  const [grade, setGrade] = useState(initial.grade);
+  const [exitReason, setExitReason] = useState(initial.exitReason ?? "");
   const [nums, setNums] = useState({
     stopPrice: initial.stopPrice?.toString() ?? "",
     targetPrice: initial.targetPrice?.toString() ?? "",
@@ -119,6 +124,52 @@ export function TradeEditor({
         </div>
       </Section>
 
+      <Section title="Setup grade">
+        <div className="flex h-7 w-fit items-center gap-0.5 rounded-md border border-border bg-background p-0.5">
+          {gradeOptions.map((g) => (
+            <button
+              key={g}
+              type="button"
+              aria-pressed={grade === g}
+              onClick={() => {
+                const next = grade === g ? null : g;
+                setGrade(next);
+                run("Saved", () => updateTrade(tradeId, { grade: next }));
+              }}
+              className={cn(
+                "num flex h-full min-w-7 items-center justify-center rounded-[5px] px-1.5 text-[12px] transition-colors",
+                grade === g ? "bg-primary/15 text-primary-text" : "text-faint hover:text-foreground",
+              )}
+            >
+              {g}
+            </button>
+          ))}
+        </div>
+      </Section>
+
+      {closed && (
+        <Section title="How it ended">
+          <select
+            aria-label="Exit reason"
+            value={exitReason}
+            onChange={(e) => {
+              const next = e.target.value;
+              setExitReason(next);
+              run("Saved", () => updateTrade(tradeId, { exitReason: next || null }));
+            }}
+            className="h-7 w-fit rounded-md border border-input bg-background px-2 text-[13px] text-foreground outline-none focus:border-primary"
+          >
+            <option value="">Not set</option>
+            {exitReasonOptions.map((o) => (
+              <option key={o.id} value={o.id}>{o.label}</option>
+            ))}
+          </select>
+          {exitReason === "breakeven" && (
+            <p className="mt-1 text-[12px] text-faint">Counted as a scratch: not a win or a loss.</p>
+          )}
+        </Section>
+      )}
+
       <Section title="Tags">
         <div className="flex flex-col gap-3">
           {[...byGroup.entries()].map(([group, list]) => (
@@ -128,6 +179,7 @@ export function TradeEditor({
                 {list.map((t) => {
                   const on = tagIds.includes(t.id);
                   const mistake = /^mistakes?$/i.test(group);
+                  const confluence = /^confluences?$/i.test(group);
                   return (
                     <button
                       key={t.id}
@@ -139,7 +191,9 @@ export function TradeEditor({
                         on
                           ? mistake
                             ? "border-loss/40 bg-loss/10 text-loss"
-                            : "border-primary/50 bg-primary/15 text-foreground"
+                            : confluence
+                              ? "border-input bg-muted text-foreground"
+                              : "border-primary/50 bg-primary/15 text-foreground"
                           : "border-input text-muted-foreground hover:border-faint hover:text-foreground",
                       )}
                     >
@@ -180,7 +234,7 @@ export function TradeEditor({
             </div>
             <div className="flex flex-col gap-0.5 rounded-md bg-muted px-2.5 py-2">
               <dt className="text-[11px] text-faint">Result</dt>
-              <dd className={cn("num", realizedR === null ? "text-faint" : realizedR >= 0 ? "text-profit" : "text-loss")}>
+              <dd className={cn("num", realizedR === null ? "text-faint" : pnlTone(realizedR))}>
                 {realizedR === null ? "Open" : formatR(realizedR, 2)}
               </dd>
             </div>
