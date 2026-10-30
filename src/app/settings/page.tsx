@@ -69,7 +69,7 @@ async function Settings() {
       {accounts.length > 0 && (
         <Section
           title="Broker inbox"
-          description="Save Tradovate Orders or Performance CSV exports into this folder and they're imported into the chosen account while Ledger is running. Imported files move to imported/, files that can't be read move to failed/ with a note."
+          description="Save Tradovate Orders or Performance CSV exports into this folder and they're imported into the chosen account while Ledger is running. Use a folder just for this, inside your user folder. Imported files move to imported/, exports that fail move to failed/ with a note, and other files are left alone."
         >
           <InboxSettings
             folder={settings.inboxFolder}

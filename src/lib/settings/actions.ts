@@ -6,7 +6,8 @@ import { db, schema } from "@/db";
 import { removeImage } from "@/lib/screenshots/storage";
 import { isValidTimezone } from "@/lib/tz";
 import { startInboxWatcher, stopInboxWatcher } from "@/lib/import/inbox";
-import { isAbsolute, resolve } from "node:path";
+import { homedir } from "node:os";
+import { isAbsolute, resolve, sep } from "node:path";
 import { stat } from "node:fs/promises";
 
 // SQLite here doesn't enforce FK cascades, so every delete cleans up its children explicitly.
@@ -179,12 +180,21 @@ export async function setInbox(folder: string, accountId: number | null): Promis
     return done();
   }
   if (!isAbsolute(dir)) return { ok: false, error: "Enter the folder's full path, starting with a drive letter." };
-  const ok = await stat(dir).then((s) => s.isDirectory(), () => false);
+  // The inbox reads and moves files, so it must be a folder inside the user's home folder.
+  const home = homedir();
+  let folderPath = resolve(dir);
+  if (process.platform === "win32" && folderPath.toLowerCase().startsWith(`${home.toLowerCase()}${sep}`)) {
+    folderPath = home + folderPath.slice(home.length); // Windows paths are case-insensitive
+  }
+  if (!folderPath.startsWith(home + sep)) {
+    return { ok: false, error: `Choose a folder inside ${home}, for example a "ledger-inbox" folder in Downloads.` };
+  }
+  const ok = await stat(folderPath).then((s) => s.isDirectory(), () => false);
   if (!ok) return { ok: false, error: "That folder doesn't exist. Create it first." };
   if (!accountId || !(await db.query.accounts.findFirst({ where: eq(schema.accounts.id, accountId) }))) {
     return { ok: false, error: "Choose the account these files belong to." };
   }
-  await upsert("inboxFolder", resolve(dir));
+  await upsert("inboxFolder", folderPath);
   await upsert("inboxAccountId", String(accountId));
   await startInboxWatcher();
   return done();

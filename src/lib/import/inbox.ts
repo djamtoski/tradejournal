@@ -11,8 +11,9 @@ import { detectPreset } from "./presets";
 
 /**
  * The watched inbox: CSV exports dropped into a folder are imported into one
- * account, then moved to imported/ (or failed/ with a .reason.txt). Only runs
- * while the app is running; files added meanwhile are picked up at start.
+ * account, then moved to imported/ (or failed/ with a .reason.txt). Other CSVs
+ * are left untouched. Only runs while the app is running; files added
+ * meanwhile are picked up at start.
  */
 
 export type InboxFileResult = { file: string; ok: boolean; message: string };
@@ -25,11 +26,14 @@ type InboxState = {
   timer: ReturnType<typeof setTimeout> | null;
   queue: Promise<unknown>;
   last: InboxRun | null;
+  /** CSVs that aren't broker exports, by name and modified time, so each is reported once and left alone. */
+  ignored: Set<string>;
 };
 
 // One state per process: instrumentation and server actions load separate module copies.
 const g = globalThis as typeof globalThis & { __ledgerInbox?: InboxState };
-const state = (g.__ledgerInbox ??= { watcher: null, folder: null, error: null, timer: null, queue: Promise.resolve(), last: null });
+const state = (g.__ledgerInbox ??= { watcher: null, folder: null, error: null, timer: null, queue: Promise.resolve(), last: null, ignored: new Set() });
+state.ignored ??= new Set(); // state created by an older version of this module
 
 export const DONE_DIR = "imported";
 export const FAILED_DIR = "failed";
@@ -72,7 +76,7 @@ async function settled(file: string) {
   return false;
 }
 
-async function importFile(dir: string, name: string, accountId: number, timezone: string): Promise<InboxFileResult> {
+async function importFile(dir: string, name: string, accountId: number, timezone: string): Promise<InboxFileResult | null> {
   const fail = async (message: string): Promise<InboxFileResult> => {
     const moved = await moveInto(dir, FAILED_DIR, name);
     await writeFile(`${moved}.reason.txt`, `${new Date().toISOString()}\n${message}\n`);
@@ -82,10 +86,17 @@ async function importFile(dir: string, name: string, accountId: number, timezone
   const full = path.join(dir, name);
   if (!(await settled(full))) return { file: name, ok: false, message: "Still being written; will retry on the next sync." };
 
+  const { mtimeMs } = await stat(full);
+  const seenKey = `${name}:${mtimeMs}`;
+  if (state.ignored.has(seenKey)) return null;
   const text = (await readFile(full, "utf8")).replace(/^﻿/, "");
   const csv = Papa.parse<Record<string, string>>(text, { header: true, skipEmptyLines: "greedy", transformHeader: (h) => h.trim() });
   const preset = detectPreset((csv.meta.fields ?? []).filter(Boolean));
-  if (!preset) return fail("Not a recognised broker export. Import it from the Import page and match the columns there.");
+  if (!preset) {
+    // Only recognised exports are ever moved; anything else in the folder stays where it is.
+    state.ignored.add(seenKey);
+    return { file: name, ok: false, message: "Not a recognised broker export, so it was left in place. Import it from the Import page instead." };
+  }
 
   const parsed = preset.parse(csv.data, timezone);
   if (!parsed.executions.length) {
@@ -118,7 +129,8 @@ export function syncInbox(): Promise<{ ok: true; run: InboxRun } | { ok: false; 
     const results: InboxFileResult[] = [];
     for (const name of names) {
       try {
-        results.push(await importFile(inboxFolder, name, inboxAccountId, timezone));
+        const result = await importFile(inboxFolder, name, inboxAccountId, timezone);
+        if (result) results.push(result);
       } catch (err) {
         results.push({ file: name, ok: false, message: err instanceof Error ? err.message : "Import failed" });
       }
