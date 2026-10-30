@@ -64,3 +64,13 @@ test("empty day still reports goals, streaks and journal", () => {
   assert.match(md, /Within limits: 0 \/ 0 days/);
   assert.match(md, /No journal entries/);
 });
+
+test("a day of only scratches has no win rate, and empty playbooks are skipped", () => {
+  const md = buildPacket(base({
+    trades: [trade({ netPnl: 0, open: "09:53", close: "09:57", risk: 500, exitReason: "breakeven" })],
+    playbooks: [{ title: "Untitled setup", content: "  ", tag: null }],
+  }));
+  assert.match(md, /1 trade over 1 trading day: 0 wins, 0 losses, 1 break-even, no wins or losses yet/);
+  assert.match(md, /not meaningful yet/);
+  assert.match(md, /No playbook entries apply/);
+});
