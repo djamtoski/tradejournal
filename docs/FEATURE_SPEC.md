@@ -105,7 +105,7 @@ Second round, one pull request per topic:
 - [x] Risk: per-account 1R and R-multiples
 - [x] Dashboard tabs: Overview, Time, Activity, Setups, Instruments
 - [x] Goals and streaks
-- [ ] Tradovate import preset and watched inbox folder
+- [x] Tradovate import preset and watched inbox folder
 - [ ] AI review through Claude Code (`/review-trades`)
 
 Deliberately left out: rich-text journal/playbook, currency, light theme,

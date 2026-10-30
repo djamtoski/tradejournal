@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import Papa from "papaparse";
-import { AlertCircle, ArrowLeft, Check, Plus } from "lucide-react";
+import { AlertCircle, ArrowLeft, Check, Plus, Sparkles } from "lucide-react";
 import { FileUpload } from "@/components/ui/file-upload-2";
 import { cn } from "@/lib/utils";
 import { formatMoney } from "@/lib/format";
@@ -16,6 +16,7 @@ import {
   type FieldId,
   type Mapping,
 } from "@/lib/import/parse";
+import { detectPreset, type Preset } from "@/lib/import/presets";
 import { formatDateTime, offsetLabel } from "@/lib/tz";
 import { createAccount, importExecutions, type ImportResult } from "@/lib/import/actions";
 
@@ -34,6 +35,7 @@ export function ImportWizard({ accounts, timezone }: { accounts: Account[]; time
   const [headers, setHeaders] = useState<string[]>([]);
   const [rows, setRows] = useState<Record<string, string>[]>([]);
   const [mapping, setMapping] = useState<Mapping>({});
+  const [preset, setPreset] = useState<Preset | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<Extract<ImportResult, { ok: true }> | null>(null);
   const [pending, startTransition] = useTransition();
@@ -41,9 +43,11 @@ export function ImportWizard({ accounts, timezone }: { accounts: Account[]; time
   const parsed = useMemo(
     () =>
       step === "preview" || step === "done"
-        ? parseRows(rows, mapping, { assetClass, multiplier: Number(multiplier) || 1, timezone })
+        ? preset
+          ? preset.parse(rows, timezone)
+          : { ...parseRows(rows, mapping, { assetClass, multiplier: Number(multiplier) || 1, timezone }), skipped: 0 }
         : null,
-    [step, rows, mapping, assetClass, multiplier, timezone],
+    [step, rows, mapping, assetClass, multiplier, timezone, preset],
   );
 
   function onFile(files: File[]) {
@@ -64,8 +68,12 @@ export function ImportWizard({ accounts, timezone }: { accounts: Account[]; time
         setHeaders(hs);
         setRows(res.data);
         setMapping(guessMapping(hs, res.data[0]));
-        if (!broker) setBroker(f.name.replace(/\.[^.]+$/, "").split(/[_\-\s]/)[0] ?? "");
-        setStep("map");
+        // A known broker export skips column matching and goes straight to the preview.
+        const known = detectPreset(hs);
+        setPreset(known);
+        if (known) setBroker(known.broker);
+        else if (!broker) setBroker(f.name.replace(/\.[^.]+$/, "").split(/[_\-\s]/)[0] ?? "");
+        setStep(known ? "preview" : "map");
       },
       error: () => setError("We couldn't read that file. Check that it's a valid CSV."),
     });
@@ -76,6 +84,7 @@ export function ImportWizard({ accounts, timezone }: { accounts: Account[]; time
     setHeaders([]);
     setRows([]);
     setMapping({});
+    setPreset(null);
     setResult(null);
     setError(null);
     setStep("upload");
@@ -200,14 +209,36 @@ export function ImportWizard({ accounts, timezone }: { accounts: Account[]; time
       )}
 
       {step === "preview" && parsed && (
-        <Preview
-          timezone={timezone}
-          parsed={parsed}
-          pending={pending}
-          canSubmit={!!accountId && parsed.executions.length > 0}
-          onBack={() => setStep("map")}
-          onSubmit={submit}
-        />
+        <>
+          {preset && (
+            <div className="flex items-start gap-3 rounded-[10px] border border-primary/30 bg-primary/5 px-4 py-3 text-[13px]">
+              <Sparkles className="mt-0.5 size-4 shrink-0 text-primary" strokeWidth={1.5} />
+              <div className="flex flex-1 flex-col gap-0.5">
+                <span className="text-foreground">Recognised a {preset.label} export</span>
+                <span className="text-[12px] text-faint">{preset.note}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setPreset(null);
+                  setStep("map");
+                }}
+                className="shrink-0 text-[12px] text-muted-foreground hover:text-foreground"
+              >
+                Match columns myself
+              </button>
+            </div>
+          )}
+          <Preview
+            timezone={timezone}
+            parsed={parsed}
+            pending={pending}
+            canSubmit={!!accountId && parsed.executions.length > 0}
+            backLabel={preset ? "Choose another file" : "Back to columns"}
+            onBack={preset ? reset : () => setStep("map")}
+            onSubmit={submit}
+          />
+        </>
       )}
 
       {step === "done" && result && (
@@ -386,17 +417,19 @@ function Preview({
   parsed,
   pending,
   canSubmit,
+  backLabel,
   onBack,
   onSubmit,
 }: {
   timezone: string;
-  parsed: ReturnType<typeof parseRows>;
+  parsed: ReturnType<typeof parseRows> & { skipped: number };
   pending: boolean;
   canSubmit: boolean;
+  backLabel: string;
   onBack: () => void;
   onSubmit: () => void;
 }) {
-  const { executions, errors } = parsed;
+  const { executions, errors, skipped } = parsed;
   const symbols = new Set(executions.map((e) => e.symbol)).size;
   const first = executions.reduce((m, e) => Math.min(m, e.executedAt), Infinity);
   const last = executions.reduce((m, e) => Math.max(m, e.executedAt), 0);
@@ -412,6 +445,12 @@ function Preview({
         <MiniStat label="Date range" value={executions.length ? `${fmtDate(first)} – ${fmtDate(last)}` : "—"} small />
         <MiniStat label="Fees" value={formatMoney(fees)} />
       </div>
+
+      {skipped > 0 && (
+        <p className="text-[12px] text-faint">
+          {skipped === 1 ? "1 order had no fill and is left out." : `${skipped.toLocaleString()} orders had no fill and are left out.`}
+        </p>
+      )}
 
       {errors.length > 0 && (
         <div className="rounded-[10px] border border-border bg-card px-4 py-3">
@@ -469,7 +508,7 @@ function Preview({
 
       <div className="flex items-center justify-between">
         <button type="button" onClick={onBack} className={secondaryBtn}>
-          <ArrowLeft className="size-3.5" strokeWidth={1.5} /> Back to columns
+          <ArrowLeft className="size-3.5" strokeWidth={1.5} /> {backLabel}
         </button>
         <button type="button" onClick={onSubmit} disabled={!canSubmit || pending} className={primaryBtn}>
           {pending ? "Importing…" : `Import ${executions.length.toLocaleString()} fills`}

@@ -18,6 +18,16 @@ export const futures: Record<string, { name: string; multiplier: number }> = {
   MCL: { name: "Micro Crude Oil", multiplier: 100 },
   GC: { name: "Gold", multiplier: 100 },
   MGC: { name: "Micro Gold", multiplier: 10 },
+  SI: { name: "Silver", multiplier: 5000 },
+  SIL: { name: "Micro Silver", multiplier: 1000 },
+  HG: { name: "Copper", multiplier: 25000 },
+  NG: { name: "Natural Gas", multiplier: 10000 },
+  ZN: { name: "10-Year T-Note", multiplier: 1000 },
+  ZB: { name: "30-Year T-Bond", multiplier: 1000 },
+  "6E": { name: "Euro FX", multiplier: 125000 },
+  M6E: { name: "Micro Euro FX", multiplier: 12500 },
+  "6B": { name: "British Pound", multiplier: 62500 },
+  "6J": { name: "Japanese Yen", multiplier: 12500000 },
 };
 
 // Contract month codes: F G H J K M N Q U V X Z.

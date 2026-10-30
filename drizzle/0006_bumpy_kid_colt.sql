@@ -1,0 +1,1 @@
+ALTER TABLE `imports` ADD `source` text DEFAULT 'upload' NOT NULL;

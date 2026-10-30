@@ -10,6 +10,7 @@ type Row = {
   fileName: string;
   broker: string;
   executionCount: number;
+  source: "upload" | "inbox";
   createdAt: Date;
   accountName: string;
 };
@@ -36,13 +37,20 @@ export function ImportHistory({ imports, timezone }: { imports: Row[]; timezone:
       <tbody>
         {imports.map((imp) => (
           <tr key={imp.id} className="group h-10 border-b border-border last:border-0 hover:bg-muted/50">
-            <td className="num px-4 text-muted-foreground">
+            <td className="num whitespace-nowrap px-4 text-muted-foreground">
               {formatDateTime(imp.createdAt, timezone)}
             </td>
-            <td className="max-w-[18rem] truncate px-4">
-              {imp.fileName} <span className="text-faint">· {imp.broker}</span>
+            <td className="max-w-[20rem] px-4">
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="truncate">
+                  {imp.fileName} <span className="text-faint">· {imp.broker}</span>
+                </span>
+                {imp.source === "inbox" && (
+                  <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">Inbox</span>
+                )}
+              </span>
             </td>
-            <td className="px-4 text-muted-foreground">{imp.accountName}</td>
+            <td className="whitespace-nowrap px-4 text-muted-foreground">{imp.accountName}</td>
             <td className="num px-4 text-right">{imp.executionCount.toLocaleString()}</td>
             <td className="px-4 text-right">
               {confirming === imp.id ? (

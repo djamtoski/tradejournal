@@ -43,6 +43,8 @@ export const imports = sqliteTable("imports", {
   broker: text("broker").notNull(),
   fileName: text("file_name").notNull(),
   executionCount: integer("execution_count").notNull().default(0),
+  /** "upload" from the Import page, "inbox" from the watched folder. */
+  source: text("source", { enum: ["upload", "inbox"] }).notNull().default("upload"),
   createdAt: createdAt(),
 });
 
